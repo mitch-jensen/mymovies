@@ -1,0 +1,12 @@
+repos:
+- repo: https://github.com/sqlfluff/sqlfluff
+  rev: 4.0.4
+  hooks:
+    - id: sqlfluff-lint
+    - id: sqlfluff-fix
+- repo: https://github.com/golangci/golangci-lint
+  rev: v2.10.1
+  hooks:
+    - id: golangci-lint-full
+    - id: golangci-lint-fmt
+    - id: golangci-lint-config-verify
