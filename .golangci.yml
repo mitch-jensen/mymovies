@@ -1,0 +1,6 @@
+linters:
+  default: all
+  exclusions:
+    warn-unused: true
+    paths-except:
+      - dbstore/

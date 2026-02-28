@@ -6,5 +6,5 @@ sql:
     gen:
       go:
         package: "db"
-        out: "gen/dbstore"
+        out: "dbstore"
         sql_package: "pgx/v5"
