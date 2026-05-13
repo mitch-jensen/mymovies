@@ -1,25 +1,30 @@
-package db
+package db_test
 
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
+
+	db "github.com/mitch-jensen/mymovies/dbstore"
 )
 
 func TestQueries_GetMovie(t *testing.T) {
-	ctx := context.Background()
-	conn := testDB(t, ctx)
-	queries := New(conn)
+	t.Parallel()
 
-	created, err := queries.CreateMovie(ctx, CreateMovieParams{
+	ctx := context.Background()
+	conn := testDB(ctx, t)
+	queries := db.New(conn)
+
+	created, err := queries.CreateMovie(ctx, db.CreateMovieParams{
 		Title:       "The Abominable Dr. Phibes",
 		ReleaseYear: 1971,
+		RuntimeMin:  pgtype.Int4{Int32: 0, Valid: false},
 	})
 	if err != nil {
 		t.Fatalf("CreateMovie() error = %v", err)
@@ -33,18 +38,21 @@ func TestQueries_GetMovie(t *testing.T) {
 	if got.ID != created.ID {
 		t.Errorf("GetMovie() ID = %v, want %v", got.ID, created.ID)
 	}
+
 	if got.Title != created.Title {
 		t.Errorf("GetMovie() Title = %q, want %q", got.Title, created.Title)
 	}
+
 	if got.ReleaseYear != created.ReleaseYear {
 		t.Errorf("GetMovie() ReleaseYear = %d, want %d", got.ReleaseYear, created.ReleaseYear)
 	}
+
 	if got.RuntimeMin != created.RuntimeMin {
 		t.Errorf("GetMovie() RuntimeMin = %v, want %v", got.RuntimeMin, created.RuntimeMin)
 	}
 }
 
-func testDB(t *testing.T, ctx context.Context) *pgx.Conn {
+func testDB(ctx context.Context, t *testing.T) *pgx.Conn {
 	t.Helper()
 
 	const (
@@ -63,8 +71,10 @@ func testDB(t *testing.T, ctx context.Context) *pgx.Conn {
 	if err != nil {
 		t.Fatalf("start postgres container: %v", err)
 	}
+
 	t.Cleanup(func() {
-		if err := testcontainers.TerminateContainer(container); err != nil {
+		err := testcontainers.TerminateContainer(container)
+		if err != nil {
 			t.Errorf("terminate postgres container: %v", err)
 		}
 	})
@@ -78,21 +88,24 @@ func testDB(t *testing.T, ctx context.Context) *pgx.Conn {
 	if err != nil {
 		t.Fatalf("connect to postgres: %v", err)
 	}
+
 	t.Cleanup(func() {
-		if err := conn.Close(ctx); err != nil {
+		err := conn.Close(ctx)
+		if err != nil {
 			t.Errorf("close postgres connection: %v", err)
 		}
 	})
 
-	applyMigrations(t, ctx, conn)
+	applyMigrations(ctx, t, conn)
 
 	return conn
 }
 
-func applyMigrations(t *testing.T, ctx context.Context, conn *pgx.Conn) {
+func applyMigrations(ctx context.Context, t *testing.T, conn *pgx.Conn) {
 	t.Helper()
 
-	migrationPath := filepath.Join("..", "migrations", "20260227093145_initial.sql")
+	const migrationPath = "../migrations/20260227093145_initial.sql"
+
 	migration, err := os.ReadFile(migrationPath)
 	if err != nil {
 		t.Fatalf("read migration %s: %v", migrationPath, err)
@@ -103,7 +116,8 @@ func applyMigrations(t *testing.T, ctx context.Context, conn *pgx.Conn) {
 		t.Fatalf("migration %s does not contain a goose Up section", migrationPath)
 	}
 
-	if _, err := conn.Exec(ctx, upSQL); err != nil {
+	_, err = conn.Exec(ctx, upSQL)
+	if err != nil {
 		t.Fatalf("apply migration %s: %v", migrationPath, err)
 	}
 }
@@ -120,6 +134,7 @@ func gooseUpSQL(migration string) (string, bool) {
 	}
 
 	upStart += len(upMarker)
+
 	upSQL := migration[upStart:]
 	if downStart := strings.Index(upSQL, downMarker); downStart != -1 {
 		upSQL = upSQL[:downStart]

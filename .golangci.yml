@@ -6,6 +6,37 @@ linters:
   disable:
     - wsl
     - gomodguard
+  settings:
+    depguard:
+      rules:
+        Main:
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/jackc/pgx/v5$
+            - github.com/jackc/pgx/v5/pgtype$
+            - github.com/spf13/viper$
+            - github.com/mitch-jensen/mymovies/dbstore$
+          deny:
+            - pkg: reflect$
+              desc: Please don't use reflect package
+        Test:
+          files:
+            - $test
+          allow:
+            - $gostd
+            - github.com/jackc/pgx/v5$
+            - github.com/jackc/pgx/v5/pgtype$
+            - github.com/mitch-jensen/mymovies/dbstore$
+            - github.com/testcontainers/testcontainers-go$
+            - github.com/testcontainers/testcontainers-go/modules/postgres$
+          deny:
+            - pkg: reflect$
+              desc: Please don't use reflect package
+            - pkg: github.com/stretchr/testify
+              desc: Please don't use testify package
 formatters:
   exclusions:
     generated: lax
