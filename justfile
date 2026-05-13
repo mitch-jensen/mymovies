@@ -20,6 +20,10 @@ default:
 fmt:
   gofmt -w $(find . -name '*.go' -not -path './vendor/*')
 
+# Update Go module dependencies.
+tidy:
+  go mod tidy
+
 # Run unit tests.
 test:
   go test ./...
