@@ -1,20 +1,15 @@
 version: "2"
 linters:
+  default: all
   exclusions:
     generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+  disable:
+    - wsl
+    - gomodguard
 formatters:
   exclusions:
     generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+output:
+  format:
+    tab:
+      colors: true
