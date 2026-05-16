@@ -1,3 +1,4 @@
+// Package api exposes the HTTP API for the movie service.
 package api
 
 import (
@@ -24,6 +25,7 @@ func (s *Server) registerMovieRoutes() {
 	}, s.createMovie)
 }
 
+// ListMoviesOutput is the response body for the list movies endpoint.
 type ListMoviesOutput struct {
 	Body []db.Movie
 }
@@ -33,9 +35,11 @@ func (s *Server) listMovies(ctx context.Context, _ *struct{}) (*ListMoviesOutput
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to list movies", err)
 	}
+
 	return &ListMoviesOutput{Body: movies}, nil
 }
 
+// CreateMovieOutput is the response body for the create movie endpoint.
 type CreateMovieOutput struct {
 	Body db.Movie
 }
@@ -47,5 +51,6 @@ func (s *Server) createMovie(ctx context.Context, input *struct {
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to create movie", err)
 	}
+
 	return &CreateMovieOutput{Body: movie}, nil
 }

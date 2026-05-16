@@ -1,7 +1,9 @@
+// Package api exposes the HTTP API for the movie service.
 package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -11,31 +13,51 @@ import (
 	db "github.com/mitch-jensen/mymovies/dbstore"
 )
 
+const (
+	readHeaderTimeout = 5 * time.Second
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 10 * time.Second
+	idleTimeout       = 60 * time.Second
+)
+
+// Server serves the movie API over HTTP.
 type Server struct {
 	queries *db.Queries
 	router  *chi.Mux
 	api     huma.API
 }
 
+// NewServer builds a movie API server backed by the given database pool.
 func NewServer(pool *pgxpool.Pool) *Server {
-	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
 
 	humaConfig := huma.DefaultConfig("My Movies API", "1.0.0")
-	api := humachi.New(r, humaConfig)
+	humaAPI := humachi.New(router, humaConfig)
 
-	s := &Server{
+	server := &Server{
 		queries: db.New(pool),
-		router:  r,
-		api:     api,
+		router:  router,
+		api:     humaAPI,
 	}
-	s.registerMovieRoutes()
-	return s
+	server.registerMovieRoutes()
+
+	return server
 }
 
+// Start listens for HTTP requests on addr.
 func (s *Server) Start(addr string) error {
-	return http.ListenAndServe(addr, s.router)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           s.router,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+
+	return server.ListenAndServe()
 }

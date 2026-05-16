@@ -15,7 +15,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-var (
+var ( //nolint:gochecknoglobals // TestMain shares the container snapshot with integration tests.
 	ctr   *postgres.PostgresContainer
 	dbURL string
 )
@@ -28,13 +28,16 @@ func RepoRoot() string {
 
 	dir := filepath.Dir(file)
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		_, err := os.Stat(filepath.Join(dir, "go.mod"))
+		if err == nil {
 			return dir
 		}
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			panic("testhelper: could not find go.mod walking up from " + file)
 		}
+
 		dir = parent
 	}
 }
@@ -76,13 +79,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	sqlDB := stdlib.OpenDB(*pgxConfig)
-
 	err = goose.SetDialect("postgres")
 	if err != nil {
 		log.Printf("set goose dialect: %v", err)
 		os.Exit(1)
 	}
+
+	sqlDB := stdlib.OpenDB(*pgxConfig)
 
 	err = goose.UpContext(ctx, sqlDB, MigrationsDir())
 	if err != nil {
@@ -92,11 +95,13 @@ func TestMain(m *testing.M) {
 
 	// Close the database connection before taking the snapshot, otherwise the snapshot
 	// will try to open a new connection to the database and fail.
-	if err := sqlDB.Close(); err != nil {
+	err = sqlDB.Close()
+	if err != nil {
 		log.Printf("close database: %v", err)
 	}
 
-	if err := ctr.Snapshot(ctx); err != nil {
+	err = ctr.Snapshot(ctx)
+	if err != nil {
 		log.Printf("snapshot database: %v", err)
 		os.Exit(1)
 	}
@@ -104,10 +109,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func setupTestDB(t *testing.T) *pgx.Conn {
+func setupTestDB(ctx context.Context, t *testing.T) *pgx.Conn {
 	t.Helper()
-
-	ctx := context.Background()
 
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
@@ -115,13 +118,16 @@ func setupTestDB(t *testing.T) *pgx.Conn {
 	}
 
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
 
-		if err := conn.Close(ctx); err != nil {
+		err := conn.Close(cleanupCtx)
+		if err != nil {
 			t.Errorf("close database connection: %v", err)
 		}
-		if err := ctr.Restore(ctx); err != nil {
+
+		err = ctr.Restore(cleanupCtx)
+		if err != nil {
 			t.Errorf("restore database snapshot: %v", err)
 		}
 	})

@@ -21,9 +21,11 @@ func main() {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
+
 	slog.Info("database connected")
 
 	ctx := context.Background()
+
 	pool, err := pgxpool.New(ctx, dbCfg.ConnectionString())
 	if err != nil {
 		slog.Error("failed to connect to postgres", "error", err)
@@ -32,6 +34,11 @@ func main() {
 	defer pool.Close()
 
 	slog.Info("starting server")
+
 	srv := api.NewServer(pool)
-	srv.Start(net.JoinHostPort(srvCfg.Address, srvCfg.Port))
+	err = srv.Start(net.JoinHostPort(srvCfg.Address, srvCfg.Port))
+	if err != nil {
+		slog.Error("server stopped", "error", err)
+		os.Exit(1)
+	}
 }

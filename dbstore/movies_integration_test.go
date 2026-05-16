@@ -2,7 +2,6 @@ package db_test
 
 import (
 	"context"
-
 	"testing"
 
 	db "github.com/mitch-jensen/mymovies/dbstore"
@@ -10,8 +9,6 @@ import (
 )
 
 func TestQueries_GetMovie(t *testing.T) {
-	ctx := context.Background()
-
 	tests := []struct {
 		name   string
 		params db.CreateMovieParams
@@ -50,9 +47,10 @@ func TestQueries_GetMovie(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint:paralleltest // Test cases share one container snapshot and restore it after each run.
 		t.Run(tt.name, func(t *testing.T) {
-			conn := setupTestDB(t)
+			ctx := context.Background()
+			conn := setupTestDB(ctx, t)
 			queries := db.New(conn)
 
 			created, err := queries.CreateMovie(ctx, tt.params)
@@ -65,22 +63,41 @@ func TestQueries_GetMovie(t *testing.T) {
 				t.Fatalf("GetMovie() error = %v", err)
 			}
 
-			if got.ID != created.ID {
-				t.Errorf("ID = %v, want %v", got.ID, created.ID)
-			}
-			if got.Title != tt.params.Title {
-				t.Errorf("Title = %q, want %q", got.Title, tt.params.Title)
-			}
-			if got.ReleaseYear != tt.params.ReleaseYear {
-				t.Errorf("ReleaseYear = %d, want %d", got.ReleaseYear, tt.params.ReleaseYear)
-			}
-			if got.RuntimeMin != nil && tt.params.RuntimeMin != nil {
-				if *got.RuntimeMin != *tt.params.RuntimeMin {
-					t.Errorf("RuntimeMin: got %d, want %d", *got.RuntimeMin, *tt.params.RuntimeMin)
-				}
-			} else if got.RuntimeMin != tt.params.RuntimeMin {
-				t.Errorf("RuntimeMin: got %v, want %v", got.RuntimeMin, tt.params.RuntimeMin)
-			}
+			assertMovie(t, got, created.ID, tt.params)
 		})
+	}
+}
+
+func assertMovie(t *testing.T, got db.Movie, wantID int32, want db.CreateMovieParams) {
+	t.Helper()
+
+	if got.ID != wantID {
+		t.Errorf("ID = %v, want %v", got.ID, wantID)
+	}
+
+	if got.Title != want.Title {
+		t.Errorf("Title = %q, want %q", got.Title, want.Title)
+	}
+
+	if got.ReleaseYear != want.ReleaseYear {
+		t.Errorf("ReleaseYear = %d, want %d", got.ReleaseYear, want.ReleaseYear)
+	}
+
+	assertRuntimeMin(t, got.RuntimeMin, want.RuntimeMin)
+}
+
+func assertRuntimeMin(t *testing.T, got *int32, want *int32) {
+	t.Helper()
+
+	if got != nil && want != nil {
+		if *got != *want {
+			t.Errorf("RuntimeMin: got %d, want %d", *got, *want)
+		}
+
+		return
+	}
+
+	if got != want {
+		t.Errorf("RuntimeMin: got %v, want %v", got, want)
 	}
 }
