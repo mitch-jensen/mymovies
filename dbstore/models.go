@@ -5,34 +5,37 @@
 package db
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type HomeVideoRelease struct {
-	ID           pgtype.UUID
-	MovieID      pgtype.UUID
-	Studio       pgtype.Text
-	CountryCode  pgtype.Text
-	Upc          interface{}
-	Ean          interface{}
-	Asin         pgtype.Text
-	ReleaseDate  pgtype.Date
-	Casing       pgtype.Text
-	Slipcover    pgtype.Bool
-	BluRayDiscs  pgtype.Int4
-	DvdDiscs     pgtype.Int4
+	ID           uuid.UUID
+	MovieID      uuid.UUID
+	Studio       *string
+	CountryCode  *string
+	Upc          *string
+	Ean          *string
+	Asin         *string
+	ReleaseDate  *time.Time
+	Casing       *string
+	Slipcover    *bool
+	BluRayDiscs  *int32
+	DvdDiscs     *int32
 	DigitalCopy  bool
-	CreatedAt    pgtype.Timestamptz
+	CreatedAt    time.Time
 	Watched      bool
-	Comment      pgtype.Text
-	Retailer     pgtype.Text
-	Price        pgtype.Numeric
-	PriceComment pgtype.Text
+	Comment      *string
+	Retailer     *string
+	Price        *decimal.Decimal
+	PriceComment *string
 }
 
 type Movie struct {
-	ID          pgtype.UUID
+	ID          uuid.UUID
 	Title       string
 	ReleaseYear int32
-	RuntimeMin  pgtype.Int4
+	RuntimeMin  *int32
 }

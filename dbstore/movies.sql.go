@@ -8,7 +8,7 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const createMovie = `-- name: CreateMovie :one
@@ -23,7 +23,7 @@ RETURNING id, title, release_year, runtime_min
 type CreateMovieParams struct {
 	Title       string
 	ReleaseYear int32
-	RuntimeMin  pgtype.Int4
+	RuntimeMin  *int32
 }
 
 func (q *Queries) CreateMovie(ctx context.Context, arg CreateMovieParams) (Movie, error) {
@@ -43,7 +43,7 @@ DELETE FROM movies
 WHERE id = $1
 `
 
-func (q *Queries) DeleteMovie(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) DeleteMovie(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteMovie, id)
 	return err
 }
@@ -53,7 +53,7 @@ SELECT id, title, release_year, runtime_min FROM movies
 WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetMovie(ctx context.Context, id pgtype.UUID) (Movie, error) {
+func (q *Queries) GetMovie(ctx context.Context, id uuid.UUID) (Movie, error) {
 	row := q.db.QueryRow(ctx, getMovie, id)
 	var i Movie
 	err := row.Scan(
@@ -105,10 +105,10 @@ WHERE id = $1
 `
 
 type UpdateMovieParams struct {
-	ID          pgtype.UUID
+	ID          uuid.UUID
 	Title       string
 	ReleaseYear int32
-	RuntimeMin  pgtype.Int4
+	RuntimeMin  *int32
 }
 
 func (q *Queries) UpdateMovie(ctx context.Context, arg UpdateMovieParams) error {

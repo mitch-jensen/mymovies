@@ -8,3 +8,135 @@ sql:
         package: "db"
         out: "dbstore"
         sql_package: "pgx/v5"
+        overrides:
+          # --- UUID ---
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+              pointer: true
+
+          # --- Text / VARCHAR ---
+          - db_type: "text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "pg_catalog.varchar"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+
+          # --- Boolean ---
+          - db_type: "bool"
+            nullable: true
+            go_type:
+              type: "bool"
+              pointer: true
+
+          # --- Integers ---
+          - db_type: "int4"
+            nullable: true
+            go_type:
+              type: "int32"
+              pointer: true
+          - db_type: "pg_catalog.int4"
+            nullable: true
+            go_type:
+              type: "int32"
+              pointer: true
+
+          # --- Date / Timestamps ---
+          - db_type: "date"
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "date"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "pg_catalog.timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "pg_catalog.timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          # --- Numeric (use shopspring/decimal for precision — ideal for Price) ---
+          - db_type: "numeric"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - db_type: "numeric"
+            nullable: true
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+              pointer: true
+          - db_type: "pg_catalog.numeric"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+              pointer: true
+
+          # bpchar for char(n) columns like country_code
+          - db_type: "pg_catalog.bpchar"
+            go_type:
+              type: "string"
+          - db_type: "pg_catalog.bpchar"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+
+          # alternate bool qualifier for slipcover
+          - db_type: "pg_catalog.bool"
+            nullable: true
+            go_type:
+              type: "bool"
+              pointer: true
+
+          # column-level fallbacks for all four stubborn fields
+          - column: "home_video_releases.country_code"
+            go_type:
+              type: "string"
+              pointer: true
+          - column: "home_video_releases.slipcover"
+            go_type:
+              type: "bool"
+              pointer: true
+          - column: "home_video_releases.upc"
+            go_type:
+              type: "string"
+              pointer: true
+          - column: "home_video_releases.ean"
+            go_type:
+              type: "string"
+              pointer: true
