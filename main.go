@@ -3,94 +3,35 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/spf13/viper"
-
-	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mitch-jensen/mymovies/internal/api"
+	"github.com/mitch-jensen/mymovies/internal/config"
 )
 
-func run() error {
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	viper.SetConfigFile(".env")
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 
-	err := viper.ReadInConfig()
+	dbCfg, srvCfg, err := config.Load(".")
 	if err != nil {
-		return fmt.Errorf("read config: %w", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
+	slog.Info("database connected")
 
 	ctx := context.Background()
-
-	connectionString := postgresConnectionString()
-
-	conn, err := pgx.Connect(ctx, connectionString)
+	pool, err := pgxpool.New(ctx, dbCfg.ConnectionString())
 	if err != nil {
-		return fmt.Errorf("connect to postgres: %w", err)
+		slog.Error("failed to connect to postgres", "error", err)
+		os.Exit(1)
 	}
+	defer pool.Close()
 
-	defer func() {
-		closeErr := conn.Close(ctx)
-		if closeErr != nil {
-			log.Printf("close postgres connection: %v", closeErr)
-		}
-	}()
-
-	queries := db.New(conn)
-
-	// list all movies
-	movies, err := queries.ListMovies(ctx)
-	if err != nil {
-		return fmt.Errorf("list movies: %w", err)
-	}
-
-	log.Println(movies)
-
-	// create an movie
-	const phibesReleaseYear = 1971
-
-	insertedMovie, err := queries.CreateMovie(ctx, db.CreateMovieParams{
-		Title:       "The Abominable Dr. Phibes",
-		ReleaseYear: phibesReleaseYear,
-		RuntimeMin:  pgtype.Int4{Int32: 0, Valid: false},
-	})
-	if err != nil {
-		return fmt.Errorf("create movie: %w", err)
-	}
-
-	log.Println(insertedMovie)
-
-	// get the movie we just inserted
-	fetchedMovie, err := queries.GetMovie(ctx, insertedMovie.ID)
-	if err != nil {
-		return fmt.Errorf("get inserted movie: %w", err)
-	}
-
-	// prints true
-	log.Println(insertedMovie == fetchedMovie)
-
-	return nil
-}
-
-func postgresConnectionString() string {
-	hostPort := net.JoinHostPort(viper.GetString("POSTGRES_ADDRESS"), viper.GetString("POSTGRES_PORT"))
-
-	return fmt.Sprintf(
-		"postgresql://%s:%s@%s/%s",
-		viper.GetString("POSTGRES_USER"),
-		viper.GetString("POSTGRES_PASSWORD"),
-		hostPort,
-		viper.GetString("POSTGRES_DB"),
-	)
-}
-
-func main() {
-	err := run()
-	if err != nil {
-		log.Fatal(err)
-	}
+	slog.Info("starting server")
+	srv := api.NewServer(pool)
+	srv.Start(net.JoinHostPort(srvCfg.Address, srvCfg.Port))
 }
