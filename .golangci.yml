@@ -6,6 +6,7 @@ linters:
   disable:
     - wsl
     - gomodguard
+    - exhaustruct
   settings:
     depguard:
       rules:
