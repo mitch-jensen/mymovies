@@ -109,10 +109,15 @@ Engine behaviour:
          re-organising an out-of-order collection).
 
 ### Phase 4 — Frontend (full-stack) ← current
-- [ ] Pick the stack (deferred; see Open decisions).
-- [ ] Generate a fully-typed TypeScript client from the OpenAPI spec.
+- [x] Stack chosen (see Decisions made).
+- [x] Scaffolded `frontend/`: Vite + React + TS, TanStack Router (file-based) +
+      Query, `@hey-api/openapi-ts` client gen wired to `../openapi.yaml`, dev
+      proxy `/api` → backend `:8081`. First screen = search with inline location.
+      *Pending the user's first `pnpm install` / `pnpm gen` / `pnpm dev` — may
+      need version/import tweaks (can't verify Node tooling here).*
+- [ ] Generate the typed client (`pnpm gen`) and get the search screen running.
 - [ ] Render bookcases/shelves; spines show the title as plain text (MVP).
-- [ ] Search → highlight a movie's location.
+- [ ] Manage collection from the UI (add movies/releases, place on shelves).
 - [ ] (Post-MVP) Realistic spine appearance.
 
 ### Cross-cutting backlog
@@ -120,10 +125,12 @@ Engine behaviour:
       types instead of leaking sqlc structs into the schema. Apply the same
       pattern to future resources (releases, bookcases…).
 - [x] API-level (httptest) tests for handlers (via `internal/testdb`).
+- [x] OpenAPI: huma serves `/openapi.json`, `/openapi.yaml`, and a `/docs` UI
+      out of the box (test-locked). `just openapi` exports the spec to
+      `openapi.yaml` (no DB needed) as the contract for client generation.
 - [ ] Pagination on list endpoints.
 - [ ] Request validation via huma input tags.
-- [ ] CI (GitHub Actions) running `just check`.
-- [ ] Serve the auto-generated OpenAPI / docs UI from huma.
+- [ ] CI (GitHub Actions) running `just check`. *(Owner: Mitch.)*
 
 ## Decisions made
 - **Single-user, local-only, no auth.** Runs locally for one user; no
@@ -134,11 +141,16 @@ Engine behaviour:
   frontend consumes a fully-typed TypeScript client generated from it.
 - **Spine rendering (MVP):** plain-text movie title on a spine shape. No spine
   appearance data (dimensions/colour/art) in the MVP.
-- **Frontend stack:** deferred until the backend is more feature-complete.
+- **Frontend stack:** **Vite + React + TypeScript** SPA (no SSR — local,
+  single-user), with **TanStack Router** + **TanStack Query**. Package manager
+  **pnpm**. Lives in `frontend/` with Go staying at repo root.
+- **Client generation:** **`@hey-api/openapi-ts`** with its `@tanstack/react-query`
+  plugin, run against `openapi.yaml` (huma emits OpenAPI 3.1 — hey-api supports
+  it). Use the generated `queryOptions`/`mutationOptions`; hand-write only thin
+  wrappers for debounced search, cross-entity cache invalidation, and optimistic
+  updates.
 
 ## Open decisions
-- **Frontend stack:** chosen later, once the backend stabilises (will consume the
-  generated TypeScript client).
 - **Spine appearance data (post-MVP):** where to store dimensions/colour/art.
 
 ## How to resume
