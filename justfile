@@ -82,9 +82,9 @@ db-down:
 run:
   go run ./main.go
 
-# Export the OpenAPI spec to openapi.yaml (drives frontend client generation).
+# Export the OpenAPI spec to frontend/openapi.yaml (drives client generation).
 openapi:
-  go run ./cmd/openapi > openapi.yaml
+  go run ./cmd/openapi > frontend/openapi.yaml
 
 # Start Postgres, apply migrations, and run the sample app.
 dev: db-up migrate-up run
@@ -95,3 +95,40 @@ build:
 
 # Run the normal local verification suite.
 check: fmt sqlc test lint
+
+# --- Docker lifecycle --------------------------------------------------------
+
+# Build and start all services (backend, frontend, db, adminer) in the background.
+up:
+  docker compose up -d --build
+
+# Stop and remove all compose services.
+down:
+  docker compose down
+
+# Follow logs for all services (or one: `just logs frontend`).
+logs *args:
+  docker compose logs -f {{args}}
+
+# --- Frontend (run on host; user drives pnpm) --------------------------------
+
+# Install frontend dependencies.
+fe-install:
+  pnpm --dir frontend install
+
+# Regenerate the typed client from frontend/openapi.yaml (run `just openapi` first).
+fe-gen:
+  pnpm --dir frontend gen
+
+# Lint the frontend with oxlint.
+fe-lint:
+  pnpm --dir frontend lint
+
+# Format the frontend with Prettier.
+fe-format:
+  pnpm --dir frontend format
+
+# Frontend verification suite: lint + format check.
+fe-check:
+  pnpm --dir frontend lint
+  pnpm --dir frontend format:check

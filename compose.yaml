@@ -12,6 +12,18 @@ services:
     ports:
       - 127.0.0.1:8081:8000
 
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    environment:
+      # Reach the backend over the compose network (container port, not 8081).
+      VITE_API_TARGET: http://mymovies:8000
+    ports:
+      - 127.0.0.1:4173:4173
+    depends_on:
+      - mymovies
+
   db:
     image: dhi.io/postgres:18-alpine
     environment:

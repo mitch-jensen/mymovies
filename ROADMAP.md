@@ -127,7 +127,9 @@ Engine behaviour:
 - [x] API-level (httptest) tests for handlers (via `internal/testdb`).
 - [x] OpenAPI: huma serves `/openapi.json`, `/openapi.yaml`, and a `/docs` UI
       out of the box (test-locked). `just openapi` exports the spec to
-      `openapi.yaml` (no DB needed) as the contract for client generation.
+      `frontend/openapi.yaml` (no DB needed) as the contract for client
+      generation. It lives under `frontend/` (gitignored) so the frontend Docker
+      build context is self-contained.
 - [ ] Pagination on list endpoints.
 - [ ] Request validation via huma input tags.
 - [ ] CI (GitHub Actions) running `just check`. *(Owner: Mitch.)*

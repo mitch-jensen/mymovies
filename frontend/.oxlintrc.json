@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "plugins": [
+    "typescript",
+    "react",
+    "react-perf",
+    "jsx-a11y",
+    "import",
+    "promise",
+    "unicorn"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "warn",
+    "style": "warn"
+  },
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "src/client",
+    "src/routeTree.gen.ts"
+  ]
+}

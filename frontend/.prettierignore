@@ -1,0 +1,8 @@
+dist
+node_modules
+pnpm-lock.yaml
+openapi.yaml
+
+# Generated sources
+src/client
+src/routeTree.gen.ts
