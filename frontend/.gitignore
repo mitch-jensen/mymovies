@@ -1,0 +1,6 @@
+node_modules
+dist
+
+# Generated: typed client (hey-api) and the router's route tree.
+src/client
+src/routeTree.gen.ts

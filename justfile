@@ -82,6 +82,10 @@ db-down:
 run:
   go run ./main.go
 
+# Export the OpenAPI spec to openapi.yaml (drives frontend client generation).
+openapi:
+  go run ./cmd/openapi > openapi.yaml
+
 # Start Postgres, apply migrations, and run the sample app.
 dev: db-up migrate-up run
 

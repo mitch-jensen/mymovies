@@ -63,6 +63,17 @@ func (s *Server) Handler() http.Handler {
 	return s.router
 }
 
+// OpenAPIYAML renders the server's OpenAPI specification as YAML. It needs no
+// database, so it can drive client code generation without booting the server.
+func (s *Server) OpenAPIYAML() ([]byte, error) {
+	spec, err := s.api.OpenAPI().YAML()
+	if err != nil {
+		return nil, fmt.Errorf("render openapi yaml: %w", err)
+	}
+
+	return spec, nil
+}
+
 // Run serves HTTP requests on addr until ctx is cancelled, then shuts down
 // gracefully within shutdownTimeout.
 func (s *Server) Run(ctx context.Context, addr string) error {

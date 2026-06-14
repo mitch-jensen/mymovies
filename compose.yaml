@@ -13,7 +13,7 @@ services:
       - 127.0.0.1:8081:8000
 
   db:
-    image: dhi.io/postgres:18-alpine3.22-dev
+    image: dhi.io/postgres:18-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
