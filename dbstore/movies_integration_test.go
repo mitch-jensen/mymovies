@@ -8,7 +8,9 @@ import (
 	"github.com/mitch-jensen/mymovies/ptr"
 )
 
-func TestQueries_GetMovie(t *testing.T) {
+func TestQueries_GetMovie(t *testing.T) { //nolint:cyclop,funlen // Keep table cases and checks inline.
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		params db.CreateMovieParams
@@ -47,13 +49,15 @@ func TestQueries_GetMovie(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests { //nolint:paralleltest // Test cases share one container snapshot and restore it after each run.
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
-			conn := setupTestDB(ctx, t)
-			queries := db.New(conn)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-			created, err := queries.CreateMovie(ctx, tt.params)
+			ctx := context.Background()
+			pool := setupTestDB(ctx, t)
+			queries := db.New(pool)
+
+			created, err := queries.CreateMovie(ctx, testCase.params)
 			if err != nil {
 				t.Fatalf("CreateMovie() error = %v", err)
 			}
@@ -63,41 +67,25 @@ func TestQueries_GetMovie(t *testing.T) {
 				t.Fatalf("GetMovie() error = %v", err)
 			}
 
-			assertMovie(t, got, created.ID, tt.params)
+			if got.ID != created.ID {
+				t.Errorf("ID = %v, want %v", got.ID, created.ID)
+			}
+
+			if got.Title != testCase.params.Title {
+				t.Errorf("Title = %q, want %q", got.Title, testCase.params.Title)
+			}
+
+			if got.ReleaseYear != testCase.params.ReleaseYear {
+				t.Errorf("ReleaseYear = %d, want %d", got.ReleaseYear, testCase.params.ReleaseYear)
+			}
+
+			switch {
+			case got.RuntimeMin == nil && testCase.params.RuntimeMin == nil:
+			case got.RuntimeMin != nil && testCase.params.RuntimeMin != nil &&
+				*got.RuntimeMin == *testCase.params.RuntimeMin:
+			default:
+				t.Errorf("RuntimeMin = %v, want %v", got.RuntimeMin, testCase.params.RuntimeMin)
+			}
 		})
-	}
-}
-
-func assertMovie(t *testing.T, got db.Movie, wantID int32, want db.CreateMovieParams) {
-	t.Helper()
-
-	if got.ID != wantID {
-		t.Errorf("ID = %v, want %v", got.ID, wantID)
-	}
-
-	if got.Title != want.Title {
-		t.Errorf("Title = %q, want %q", got.Title, want.Title)
-	}
-
-	if got.ReleaseYear != want.ReleaseYear {
-		t.Errorf("ReleaseYear = %d, want %d", got.ReleaseYear, want.ReleaseYear)
-	}
-
-	assertRuntimeMin(t, got.RuntimeMin, want.RuntimeMin)
-}
-
-func assertRuntimeMin(t *testing.T, got *int32, want *int32) {
-	t.Helper()
-
-	if got != nil && want != nil {
-		if *got != *want {
-			t.Errorf("RuntimeMin: got %d, want %d", *got, *want)
-		}
-
-		return
-	}
-
-	if got != want {
-		t.Errorf("RuntimeMin: got %v, want %v", got, want)
 	}
 }

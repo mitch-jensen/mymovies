@@ -2,6 +2,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -59,5 +60,10 @@ func (s *Server) Start(addr string) error {
 		IdleTimeout:       idleTimeout,
 	}
 
-	return server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		return fmt.Errorf("listen and serve: %w", err)
+	}
+
+	return nil
 }

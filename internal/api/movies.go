@@ -1,4 +1,3 @@
-// Package api exposes the HTTP API for the movie service.
 package api
 
 import (

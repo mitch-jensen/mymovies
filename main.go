@@ -13,13 +13,18 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	dbCfg, srvCfg, err := config.Load(".")
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
 
 	slog.Info("database connected")
@@ -29,16 +34,21 @@ func main() {
 	pool, err := pgxpool.New(ctx, dbCfg.ConnectionString())
 	if err != nil {
 		slog.Error("failed to connect to postgres", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
 	defer pool.Close()
 
 	slog.Info("starting server")
 
 	srv := api.NewServer(pool)
+
 	err = srv.Start(net.JoinHostPort(srvCfg.Address, srvCfg.Port))
 	if err != nil {
 		slog.Error("server stopped", "error", err)
-		os.Exit(1)
+
+		return 1
 	}
+
+	return 0
 }

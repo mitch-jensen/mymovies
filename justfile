@@ -24,6 +24,10 @@ fmt:
 tidy:
   go mod tidy
 
+# 
+vendor:
+  go mod vendor
+
 # Run unit tests.
 test:
   go test ./...

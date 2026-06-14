@@ -2,22 +2,28 @@ package db_test
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-var ( //nolint:gochecknoglobals // TestMain shares the container snapshot with integration tests.
-	ctr   *postgres.PostgresContainer
-	dbURL string
+const (
+	testDatabaseURLEnv = "MYMOVIES_TEST_DATABASE_URL"
+	testTemplateDBEnv  = "MYMOVIES_TEST_TEMPLATE_DATABASE"
+
+	testTemplateDB = "app_template"
 )
 
 func RepoRoot() string {
@@ -49,88 +55,200 @@ func MigrationsDir() string {
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
+	exitCode := runTestMain(ctx, m)
 
-	var err error
+	os.Exit(exitCode)
+}
 
-	ctr, err = postgres.Run(
+func runTestMain(ctx context.Context, m *testing.M) int {
+	ctr, err := postgres.Run(
 		ctx,
 		"postgres:16-alpine",
-		postgres.WithDatabase("app_test"),
+		postgres.WithDatabase(testTemplateDB),
 		postgres.WithUsername("app"),
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
 		postgres.WithSQLDriver("pgx"),
 	)
-
 	if err != nil {
 		log.Printf("error starting postgres container: %v", err)
-		os.Exit(1)
+
+		return 1
 	}
 
-	dbURL, err = ctr.ConnectionString(ctx, "sslmode=disable")
+	databaseURL, err := ctr.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		log.Printf("error getting postgres connection string: %v", err)
-		os.Exit(1)
+
+		return terminateContainer(ctx, ctr, 1)
 	}
 
-	pgxConfig, err := pgx.ParseConfig(dbURL)
+	err = runMigrations(ctx, databaseURL)
 	if err != nil {
-		log.Printf("could not parse pgx config: %v", err)
-		os.Exit(1)
+		log.Printf("error migrating template database: %v", err)
+
+		return terminateContainer(ctx, ctr, 1)
+	}
+
+	err = os.Setenv(testDatabaseURLEnv, databaseURL)
+	if err != nil {
+		log.Printf("error setting %s: %v", testDatabaseURLEnv, err)
+
+		return terminateContainer(ctx, ctr, 1)
+	}
+
+	err = os.Setenv(testTemplateDBEnv, testTemplateDB)
+	if err != nil {
+		log.Printf("error setting %s: %v", testTemplateDBEnv, err)
+
+		return terminateContainer(ctx, ctr, 1)
+	}
+
+	return terminateContainer(ctx, ctr, m.Run())
+}
+
+func terminateContainer(ctx context.Context, ctr *postgres.PostgresContainer, exitCode int) int {
+	err := ctr.Terminate(ctx)
+	if err != nil {
+		log.Printf("error terminating postgres container: %v", err)
+
+		return 1
+	}
+
+	return exitCode
+}
+
+func setupTestDB(ctx context.Context, t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
+	templateURL := os.Getenv(testDatabaseURLEnv)
+	if templateURL == "" {
+		t.Fatalf("%s is not set", testDatabaseURLEnv)
+	}
+
+	templateDB := os.Getenv(testTemplateDBEnv)
+	if templateDB == "" {
+		t.Fatalf("%s is not set", testTemplateDBEnv)
+	}
+
+	dbName := testDatabaseName(t)
+	adminURL := databaseURL(t, templateURL, "postgres")
+
+	adminPool := connectPool(ctx, t, adminURL)
+	defer adminPool.Close()
+
+	createDatabase(ctx, t, adminPool, dbName, templateDB)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+
+		dropDatabase(cleanupCtx, t, adminURL, dbName)
+	})
+
+	pool := connectPool(ctx, t, databaseURL(t, templateURL, dbName))
+	t.Cleanup(pool.Close)
+
+	return pool
+}
+
+func runMigrations(ctx context.Context, databaseURL string) error {
+	pgxConfig, err := pgx.ParseConfig(databaseURL)
+	if err != nil {
+		return fmt.Errorf("parse pgx config: %w", err)
 	}
 
 	err = goose.SetDialect("postgres")
 	if err != nil {
-		log.Printf("set goose dialect: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("set goose dialect: %w", err)
 	}
 
 	sqlDB := stdlib.OpenDB(*pgxConfig)
 
 	err = goose.UpContext(ctx, sqlDB, MigrationsDir())
 	if err != nil {
-		log.Printf("apply migrations: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 
-	// Close the database connection before taking the snapshot, otherwise the snapshot
-	// will try to open a new connection to the database and fail.
 	err = sqlDB.Close()
 	if err != nil {
-		log.Printf("close database: %v", err)
+		return fmt.Errorf("close migration database: %w", err)
 	}
 
-	err = ctr.Snapshot(ctx)
-	if err != nil {
-		log.Printf("snapshot database: %v", err)
-		os.Exit(1)
-	}
-
-	os.Exit(m.Run())
+	return nil
 }
 
-func setupTestDB(ctx context.Context, t *testing.T) *pgx.Conn {
+func testDatabaseName(t *testing.T) string {
 	t.Helper()
 
-	conn, err := pgx.Connect(ctx, dbURL)
+	cleanName := strings.Map(func(char rune) rune {
+		if char >= 'a' && char <= 'z' {
+			return char
+		}
+
+		if char >= '0' && char <= '9' {
+			return char
+		}
+
+		return '_'
+	}, strings.ToLower(t.Name()))
+
+	cleanName = strings.Trim(cleanName, "_")
+	if len(cleanName) > 32 {
+		cleanName = cleanName[:32]
+	}
+
+	return fmt.Sprintf("test_%s_%d", cleanName, time.Now().UnixNano())
+}
+
+func connectPool(ctx context.Context, t *testing.T, databaseURL string) *pgxpool.Pool {
+	t.Helper()
+
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatalf("connect to database: %v", err)
 	}
 
-	t.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
+	return pool
+}
 
-		err := conn.Close(cleanupCtx)
-		if err != nil {
-			t.Errorf("close database connection: %v", err)
-		}
+func createDatabase(ctx context.Context, t *testing.T, pool *pgxpool.Pool, dbName string, templateDB string) {
+	t.Helper()
 
-		err = ctr.Restore(cleanupCtx)
-		if err != nil {
-			t.Errorf("restore database snapshot: %v", err)
-		}
-	})
+	sql := fmt.Sprintf(
+		"CREATE DATABASE %s TEMPLATE %s",
+		pgx.Identifier{dbName}.Sanitize(),
+		pgx.Identifier{templateDB}.Sanitize(),
+	)
 
-	return conn
+	_, err := pool.Exec(ctx, sql)
+	if err != nil {
+		t.Fatalf("create test database: %v", err)
+	}
+}
+
+func dropDatabase(ctx context.Context, t *testing.T, adminURL string, dbName string) {
+	t.Helper()
+
+	adminPool := connectPool(ctx, t, adminURL)
+	defer adminPool.Close()
+
+	sql := fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", pgx.Identifier{dbName}.Sanitize())
+
+	_, err := adminPool.Exec(ctx, sql)
+	if err != nil {
+		t.Errorf("drop test database: %v", err)
+	}
+}
+
+func databaseURL(t *testing.T, adminURL string, dbName string) string {
+	t.Helper()
+
+	parsedURL, err := url.Parse(adminURL)
+	if err != nil {
+		t.Fatalf("parse database URL: %v", err)
+	}
+
+	parsedURL.Path = "/" + dbName
+
+	return parsedURL.String()
 }
