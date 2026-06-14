@@ -1,27 +1,36 @@
-FROM dhi.io/node:24-alpine-dev AS base
-USER root
-ENV PNPM_HOME=/pnpm \
-    PATH=/pnpm:$PATH \
-    CI=true
-RUN corepack enable
-WORKDIR /app
+FROM node:24-slim AS base
 
-FROM base AS deps
-RUN --mount=type=bind,source=package.json,target=package.json \
+ENV PNPM_HOME="/pnpm" \
+    PATH="$PNPM_HOME/bin:$PATH"
+
+RUN corepack enable
+
+FROM base AS prod-deps
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=pnpm-lock.yaml,target=pnpm-lock.yaml \
-    --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --prod --frozen-lockfile
+
+FROM base AS build
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=pnpm-lock.yaml,target=pnpm-lock.yaml \
     pnpm install --frozen-lockfile
 
-FROM deps AS build
-COPY . .
-RUN pnpm gen && pnpm exec vite build
+RUN pnpm run build
 
 FROM base AS runtime
+
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/vite.config.ts ./vite.config.ts
 COPY --from=build /app/package.json ./package.json
+
 USER nonroot
+
 EXPOSE 4173
+
 CMD ["pnpm", "exec", "vite", "preview", "--host", "--port", "4173"]
