@@ -52,6 +52,12 @@ func NewServer(pool *pgxpool.Pool) *Server {
 	return server
 }
 
+// Handler returns the underlying HTTP handler. It is primarily useful for
+// exercising the API in tests via httptest.
+func (s *Server) Handler() http.Handler {
+	return s.router
+}
+
 // Run serves HTTP requests on addr until ctx is cancelled, then shuts down
 // gracefully within shutdownTimeout.
 func (s *Server) Run(ctx context.Context, addr string) error {

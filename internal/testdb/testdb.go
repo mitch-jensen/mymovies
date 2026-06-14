@@ -1,4 +1,7 @@
-package db_test
+// Package testdb provides a shared PostgreSQL test harness. A single container
+// is started per test binary with the schema migrated into a template database;
+// each test then clones that template into an isolated database of its own.
+package testdb
 
 import (
 	"context"
@@ -20,51 +23,28 @@ import (
 )
 
 const (
+	templateDBName = "app_template"
+
+	// Run publishes the template connection details via the environment so Setup
+	// can read them without shared package state.
 	testDatabaseURLEnv = "MYMOVIES_TEST_DATABASE_URL"
 	testTemplateDBEnv  = "MYMOVIES_TEST_TEMPLATE_DATABASE"
 
-	testTemplateDB = "app_template"
+	cleanupTimeout  = 30 * time.Second
+	maxDBNameLength = 32
 )
 
-func RepoRoot() string {
-	_, file, _, ok := runtime.Caller(1)
-	if !ok {
-		panic("testhelper: could not determine caller path")
-	}
-
-	dir := filepath.Dir(file)
-	for {
-		_, err := os.Stat(filepath.Join(dir, "go.mod"))
-		if err == nil {
-			return dir
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			panic("testhelper: could not find go.mod walking up from " + file)
-		}
-
-		dir = parent
-	}
-}
-
-// MigrationsDir returns the absolute path to the top-level migrations directory.
-func MigrationsDir() string {
-	return filepath.Join(RepoRoot(), "migrations")
-}
-
-func TestMain(m *testing.M) {
+// Run starts a migrated PostgreSQL container, executes the test suite, and
+// tears the container down. Call it from TestMain:
+//
+//	func TestMain(m *testing.M) { os.Exit(testdb.Run(m)) }
+func Run(m *testing.M) int {
 	ctx := context.Background()
-	exitCode := runTestMain(ctx, m)
 
-	os.Exit(exitCode)
-}
-
-func runTestMain(ctx context.Context, m *testing.M) int {
 	ctr, err := postgres.Run(
 		ctx,
 		"postgres:16-alpine",
-		postgres.WithDatabase(testTemplateDB),
+		postgres.WithDatabase(templateDBName),
 		postgres.WithUsername("app"),
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
@@ -97,7 +77,7 @@ func runTestMain(ctx context.Context, m *testing.M) int {
 		return terminateContainer(ctx, ctr, 1)
 	}
 
-	err = os.Setenv(testTemplateDBEnv, testTemplateDB)
+	err = os.Setenv(testTemplateDBEnv, templateDBName)
 	if err != nil {
 		log.Printf("error setting %s: %v", testTemplateDBEnv, err)
 
@@ -105,6 +85,41 @@ func runTestMain(ctx context.Context, m *testing.M) int {
 	}
 
 	return terminateContainer(ctx, ctr, m.Run())
+}
+
+// Setup clones the migrated template database into a fresh database for the test
+// and returns a connection pool to it. The clone is dropped on test cleanup.
+func Setup(ctx context.Context, t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
+	templateURL := os.Getenv(testDatabaseURLEnv)
+	if templateURL == "" {
+		t.Fatalf("%s is not set; is testdb.Run wired into TestMain?", testDatabaseURLEnv)
+	}
+
+	templateDB := os.Getenv(testTemplateDBEnv)
+	if templateDB == "" {
+		t.Fatalf("%s is not set; is testdb.Run wired into TestMain?", testTemplateDBEnv)
+	}
+
+	dbName := testDatabaseName(t)
+	adminURL := databaseURL(t, templateURL, "postgres")
+
+	adminPool := connectPool(ctx, t, adminURL)
+	defer adminPool.Close()
+
+	createDatabase(ctx, t, adminPool, dbName, templateDB)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+		defer cancel()
+
+		dropDatabase(cleanupCtx, t, adminURL, dbName)
+	})
+
+	pool := connectPool(ctx, t, databaseURL(t, templateURL, dbName))
+	t.Cleanup(pool.Close)
+
+	return pool
 }
 
 func terminateContainer(ctx context.Context, ctr *postgres.PostgresContainer, exitCode int) int {
@@ -116,39 +131,6 @@ func terminateContainer(ctx context.Context, ctr *postgres.PostgresContainer, ex
 	}
 
 	return exitCode
-}
-
-func setupTestDB(ctx context.Context, t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
-	templateURL := os.Getenv(testDatabaseURLEnv)
-	if templateURL == "" {
-		t.Fatalf("%s is not set", testDatabaseURLEnv)
-	}
-
-	templateDB := os.Getenv(testTemplateDBEnv)
-	if templateDB == "" {
-		t.Fatalf("%s is not set", testTemplateDBEnv)
-	}
-
-	dbName := testDatabaseName(t)
-	adminURL := databaseURL(t, templateURL, "postgres")
-
-	adminPool := connectPool(ctx, t, adminURL)
-	defer adminPool.Close()
-
-	createDatabase(ctx, t, adminPool, dbName, templateDB)
-	t.Cleanup(func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-
-		dropDatabase(cleanupCtx, t, adminURL, dbName)
-	})
-
-	pool := connectPool(ctx, t, databaseURL(t, templateURL, dbName))
-	t.Cleanup(pool.Close)
-
-	return pool
 }
 
 func runMigrations(ctx context.Context, databaseURL string) error {
@@ -164,7 +146,7 @@ func runMigrations(ctx context.Context, databaseURL string) error {
 
 	sqlDB := stdlib.OpenDB(*pgxConfig)
 
-	err = goose.UpContext(ctx, sqlDB, MigrationsDir())
+	err = goose.UpContext(ctx, sqlDB, migrationsDir())
 	if err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
@@ -175,6 +157,30 @@ func runMigrations(ctx context.Context, databaseURL string) error {
 	}
 
 	return nil
+}
+
+// migrationsDir returns the absolute path to the top-level migrations directory,
+// resolved relative to this source file so it works from any test package.
+func migrationsDir() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("testdb: could not determine caller path")
+	}
+
+	dir := filepath.Dir(file)
+	for {
+		_, err := os.Stat(filepath.Join(dir, "go.mod"))
+		if err == nil {
+			return filepath.Join(dir, "migrations")
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			panic("testdb: could not find go.mod walking up from " + file)
+		}
+
+		dir = parent
+	}
 }
 
 func testDatabaseName(t *testing.T) string {
@@ -193,8 +199,8 @@ func testDatabaseName(t *testing.T) string {
 	}, strings.ToLower(t.Name()))
 
 	cleanName = strings.Trim(cleanName, "_")
-	if len(cleanName) > 32 {
-		cleanName = cleanName[:32]
+	if len(cleanName) > maxDBNameLength {
+		cleanName = cleanName[:maxDBNameLength]
 	}
 
 	return fmt.Sprintf("test_%s_%d", cleanName, time.Now().UnixNano())

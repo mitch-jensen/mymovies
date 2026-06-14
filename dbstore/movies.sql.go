@@ -95,13 +95,14 @@ func (q *Queries) ListMovies(ctx context.Context) ([]Movie, error) {
 	return items, nil
 }
 
-const updateMovie = `-- name: UpdateMovie :exec
+const updateMovie = `-- name: UpdateMovie :one
 UPDATE movies
 SET
     title = $2,
     release_year = $3,
     runtime_min = $4
 WHERE id = $1
+RETURNING id, title, release_year, runtime_min
 `
 
 type UpdateMovieParams struct {
@@ -111,12 +112,19 @@ type UpdateMovieParams struct {
 	RuntimeMin  *int32
 }
 
-func (q *Queries) UpdateMovie(ctx context.Context, arg UpdateMovieParams) error {
-	_, err := q.db.Exec(ctx, updateMovie,
+func (q *Queries) UpdateMovie(ctx context.Context, arg UpdateMovieParams) (Movie, error) {
+	row := q.db.QueryRow(ctx, updateMovie,
 		arg.ID,
 		arg.Title,
 		arg.ReleaseYear,
 		arg.RuntimeMin,
 	)
-	return err
+	var i Movie
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.ReleaseYear,
+		&i.RuntimeMin,
+	)
+	return i, err
 }

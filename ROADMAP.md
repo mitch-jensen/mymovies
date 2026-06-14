@@ -38,12 +38,14 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
 ## Plan
 
 ### Phase 1 — Complete the movie & release API ← current
-- [ ] Expose remaining movie routes: `GET/PUT/DELETE /movies/{id}` (map
-      not-found to 404). Queries already exist.
-- [ ] dbstore tests for `ListMovies`, `UpdateMovie`, `DeleteMovie`.
+- [x] Expose remaining movie routes: `GET/PUT/DELETE /movies/{id}` (404 on
+      not-found; `UpdateMovie` now `RETURNING *` so PUT returns the resource).
+- [x] dbstore tests for `ListMovies`, `UpdateMovie`, `DeleteMovie`.
+- [x] Shared test-DB harness extracted to `internal/testdb`; `internal/api` now
+      has real httptest handler tests.
+- [x] API DTOs (`Movie`, `MovieFields`) decouple the schema from db types — done
+      early because of the schema-first / typed-client goal.
 - [ ] Queries + routes for `home_video_releases` (CRUD, linked to a movie).
-- [ ] Decide & build a shared test-DB harness so `internal/api` can have
-      handler tests (currently the harness lives only in `dbstore`).
 
 ### Phase 2 — Physical location domain
 - [ ] Migration: `bookcases`, `shelves`, and placement of releases onto shelves
@@ -63,11 +65,10 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
 - [ ] (Post-MVP) Realistic spine appearance.
 
 ### Cross-cutting backlog
-- [ ] **API DTOs vs. db types:** handlers currently return sqlc-generated structs
-      (`db.Movie`) directly, leaking DB types into the OpenAPI contract / TS
-      client. Define explicit request/response types so the public schema is
-      decoupled from the database. Matters because of the schema-first approach.
-- [ ] API-level (httptest) tests for handlers once the shared harness exists.
+- [x] **API DTOs vs. db types:** handlers now use explicit `Movie` / `MovieFields`
+      types instead of leaking sqlc structs into the schema. Apply the same
+      pattern to future resources (releases, bookcases…).
+- [x] API-level (httptest) tests for handlers (via `internal/testdb`).
 - [ ] Pagination on list endpoints.
 - [ ] Request validation via huma input tags.
 - [ ] CI (GitHub Actions) running `just check`.
