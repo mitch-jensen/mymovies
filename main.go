@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mitch-jensen/mymovies/internal/api"
@@ -22,28 +24,28 @@ func run() int {
 
 	dbCfg, srvCfg, err := config.Load(".")
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
+		slog.Error("failed to load configuration", "error", err)
 
 		return 1
 	}
 
-	slog.Info("database connected")
-
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	pool, err := pgxpool.New(ctx, dbCfg.ConnectionString())
 	if err != nil {
-		slog.Error("failed to connect to postgres", "error", err)
+		slog.Error("failed to create database pool", "error", err)
 
 		return 1
 	}
 	defer pool.Close()
 
-	slog.Info("starting server")
+	addr := net.JoinHostPort(srvCfg.Address, srvCfg.Port)
+	slog.Info("starting server", "address", addr)
 
 	srv := api.NewServer(pool)
 
-	err = srv.Start(net.JoinHostPort(srvCfg.Address, srvCfg.Port))
+	err = srv.Run(ctx, addr)
 	if err != nil {
 		slog.Error("server stopped", "error", err)
 

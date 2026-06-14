@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -30,11 +31,12 @@ func Load(configPath string) (*DbConfig, *ServerConfig, error) {
 
 	config.AutomaticEnv()
 
-	_, err := os.Stat(".env")
+	envFile := filepath.Join(configPath, ".env")
+
+	_, err := os.Stat(envFile)
 	if err == nil {
+		config.SetConfigFile(envFile)
 		config.SetConfigType("env")
-		config.AddConfigPath(configPath)
-		config.SetConfigFile(".env")
 
 		err = config.ReadInConfig()
 		if err != nil {

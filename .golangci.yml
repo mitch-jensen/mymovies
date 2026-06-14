@@ -40,6 +40,7 @@ linters:
             - github.com/jackc/pgx/v5/pgxpool$
             - github.com/jackc/pgx/v5/stdlib$
             - github.com/mitch-jensen/mymovies/dbstore$
+            - github.com/mitch-jensen/mymovies/internal/config$
             - github.com/mitch-jensen/mymovies/ptr$
             - github.com/pressly/goose/v3$
             - github.com/testcontainers/testcontainers-go$

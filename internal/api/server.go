@@ -2,6 +2,8 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -19,6 +21,7 @@ const (
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 10 * time.Second
 	idleTimeout       = 60 * time.Second
+	shutdownTimeout   = 10 * time.Second
 )
 
 // Server serves the movie API over HTTP.
@@ -49,8 +52,9 @@ func NewServer(pool *pgxpool.Pool) *Server {
 	return server
 }
 
-// Start listens for HTTP requests on addr.
-func (s *Server) Start(addr string) error {
+// Run serves HTTP requests on addr until ctx is cancelled, then shuts down
+// gracefully within shutdownTimeout.
+func (s *Server) Run(ctx context.Context, addr string) error {
 	server := &http.Server{
 		Addr:              addr,
 		Handler:           s.router,
@@ -60,9 +64,33 @@ func (s *Server) Start(addr string) error {
 		IdleTimeout:       idleTimeout,
 	}
 
-	err := server.ListenAndServe()
+	serverErr := make(chan error, 1)
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+
+		close(serverErr)
+	}()
+
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			return fmt.Errorf("listen and serve: %w", err)
+		}
+
+		return nil
+	case <-ctx.Done():
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	defer cancel()
+
+	err := server.Shutdown(shutdownCtx)
 	if err != nil {
-		return fmt.Errorf("listen and serve: %w", err)
+		return fmt.Errorf("shutdown server: %w", err)
 	}
 
 	return nil
