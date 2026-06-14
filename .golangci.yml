@@ -7,6 +7,9 @@ linters:
     - wsl
     - gomodguard
     - exhaustruct
+    # huma route registration and the thin CRUD handlers are intentionally
+    # repetitive; dupl flags this legitimate pattern with no useful dedup.
+    - dupl
   settings:
     depguard:
       rules:

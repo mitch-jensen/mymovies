@@ -37,7 +37,7 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
 
 ## Plan
 
-### Phase 1 — Complete the movie & release API ← current
+### Phase 1 — Complete the movie & release API ✓ done
 - [x] Expose remaining movie routes: `GET/PUT/DELETE /movies/{id}` (404 on
       not-found; `UpdateMovie` now `RETURNING *` so PUT returns the resource).
 - [x] dbstore tests for `ListMovies`, `UpdateMovie`, `DeleteMovie`.
@@ -50,15 +50,58 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
       /releases/{id}`), with creation 404ing on a missing movie. dbstore + api
       tests cover it.
 
-### Phase 2 — Physical location domain
-- [ ] Migration: `bookcases`, `shelves`, and placement of releases onto shelves
-      (FK + ordered position).
-- [ ] Queries + routes: create/list bookcases & shelves; place / move / remove a
-      release; **locate** a release (→ bookcase + shelf + position).
+### Phase 2 — Physical location domain ✓ done
+- [x] Migration `20260614120000_location_domain`: `bookcases`, `shelves`,
+      `placements` (release↔shelf, `release_id` UNIQUE, ordered `position`,
+      `ON DELETE CASCADE` throughout).
+- [x] Queries: bookcase & shelf CRUD; `PlaceRelease` (upsert/move via
+      `ON CONFLICT (release_id)`); `RemovePlacement`; `LocateRelease` (join via
+      `sqlc.embed` → `{Bookcase, Shelf, Placement}`). dbstore tests cover them.
+- [x] API routes + DTOs + httptest: bookcase CRUD (`/bookcases`), shelf CRUD
+      (`/bookcases/{id}/shelves`, `/shelves/{id}`), `PUT`/`DELETE
+      /releases/{id}/placement`, and `GET /releases/{id}/location` (the
+      **locate** endpoint; 404 when unplaced).
 
-### Phase 3 — Search
+### Phase 3 — Search ← current
 - [ ] Search movies by title (consider `pg_trgm` / full-text), returning the
       physical location. `GET /search?q=`.
+
+### Phase 5 — Dimensions & packing engine (post-MVP, deferred)
+The big one. Deferred entirely for now (data model included) — recorded here so
+the MVP location API doesn't block on it. The existing `placements(shelf_id,
+position)` table is the engine's **commit target**: preview computes a candidate
+layout in memory; commit writes it to `placements`. So nothing built so far is
+wasted.
+
+Data model to add (when we start this phase):
+- [ ] **Casing catalog**: `casings` table with standard case dimensions in mm —
+      `height_mm` (vertical / standing-fit), `width_mm` (into shelf depth),
+      `spine_mm` (consumed along the shelf when standing spine-out). Replace the
+      free-text `home_video_releases.casing` with a `casing_id` FK.
+- [ ] **Per-release dimension override**: nullable `height_mm` / `width_mm` /
+      `spine_mm` on `home_video_releases`; effective dim = override ?? casing's.
+- [ ] **Shelf dimensions**: interior `height_mm` / `width_mm` / `depth_mm` on
+      `shelves`. No special "short shelf" flag — a shelf is short iff a release
+      won't fit standing; the engine derives that from `height_mm`.
+- [ ] **Bookcase fill direction**: e.g. `top_to_bottom` / `bottom_to_top`.
+- [ ] **Placement orientation**: standing vs. laid flat (for oversized releases
+      that only fit horizontally).
+
+Engine behaviour:
+- [ ] Pack by `spine_mm` along each shelf (1-D wrap); a release goes on the next
+      shelf in fill order that fits it (tall enough to stand, else laid flat on a
+      short shelf). **No explicit pinning** — a release's shelf is simply its
+      current materialised assignment; adds/removes may move it, and the engine
+      finds the next/previous fitting shelf.
+- [ ] Insert/remove cascades across shelves (may shift by more than one shelf to
+      make things fit).
+- [ ] **Preview → commit**: compute candidate layout without persisting; commit
+      writes `placements`.
+- [ ] Heuristics (user-selectable, in preference order):
+      1. **Preserve current order** — on add/remove, shift releases forward/back
+         to keep the existing order.
+      2. **Alphabetise** — reflow the whole collection in title order (for
+         re-organising an out-of-order collection).
 
 ### Phase 4 — Frontend (full-stack)
 - [ ] Pick the stack (deferred; see Open decisions).

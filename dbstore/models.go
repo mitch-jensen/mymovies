@@ -11,6 +11,13 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type Bookcase struct {
+	ID        uuid.UUID
+	Name      string
+	Position  int32
+	CreatedAt time.Time
+}
+
 type HomeVideoRelease struct {
 	ID           uuid.UUID
 	MovieID      uuid.UUID
@@ -38,4 +45,19 @@ type Movie struct {
 	Title       string
 	ReleaseYear int32
 	RuntimeMin  *int32
+}
+
+type Placement struct {
+	ID        uuid.UUID
+	ReleaseID uuid.UUID
+	ShelfID   uuid.UUID
+	Position  int32
+	CreatedAt time.Time
+}
+
+type Shelf struct {
+	ID         uuid.UUID
+	BookcaseID uuid.UUID
+	Position   int32
+	CreatedAt  time.Time
 }

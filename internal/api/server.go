@@ -49,6 +49,9 @@ func NewServer(pool *pgxpool.Pool) *Server {
 	}
 	server.registerMovieRoutes()
 	server.registerReleaseRoutes()
+	server.registerBookcaseRoutes()
+	server.registerShelfRoutes()
+	server.registerPlacementRoutes()
 
 	return server
 }
