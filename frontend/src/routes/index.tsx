@@ -52,9 +52,8 @@ function Home() {
               <ul>
                 {result.locatedReleases.map((located) => (
                   <li key={located.release.id}>
-                    {located.location.bookcase.name} · shelf{' '}
-                    {located.location.shelf.position} · slot{' '}
-                    {located.location.placement.position}
+                    {located.location.bookcase.name} · shelf {located.location.shelf.position} ·
+                    slot {located.location.placement.position}
                   </li>
                 ))}
               </ul>
