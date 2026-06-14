@@ -52,6 +52,7 @@ func NewServer(pool *pgxpool.Pool) *Server {
 	server.registerBookcaseRoutes()
 	server.registerShelfRoutes()
 	server.registerPlacementRoutes()
+	server.registerSearchRoutes()
 
 	return server
 }

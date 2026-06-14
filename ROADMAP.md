@@ -62,9 +62,14 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
       /releases/{id}/placement`, and `GET /releases/{id}/location` (the
       **locate** endpoint; 404 when unplaced).
 
-### Phase 3 — Search ← current
-- [ ] Search movies by title (consider `pg_trgm` / full-text), returning the
-      physical location. `GET /search?q=`.
+### Phase 3 — Search ✓ done
+- [x] `GET /search?q=&limit=` — fuzzy, case-insensitive title search via
+      `pg_trgm` (GIN trigram index; `ILIKE` substring + `similarity` ranking).
+      Returns `[]SearchResult{movie, locatedReleases:[{release, location}]}` with
+      each placed copy's physical location inline. No Elasticsearch needed at
+      single-user scale; "instant feel" is a client concern (debounce + cap).
+      dbstore + api tests cover case-insensitivity, typo tolerance, limit, and
+      inline location.
 
 ### Phase 5 — Dimensions & packing engine (post-MVP, deferred)
 The big one. Deferred entirely for now (data model included) — recorded here so
@@ -103,7 +108,7 @@ Engine behaviour:
       2. **Alphabetise** — reflow the whole collection in title order (for
          re-organising an out-of-order collection).
 
-### Phase 4 — Frontend (full-stack)
+### Phase 4 — Frontend (full-stack) ← current
 - [ ] Pick the stack (deferred; see Open decisions).
 - [ ] Generate a fully-typed TypeScript client from the OpenAPI spec.
 - [ ] Render bookcases/shelves; spines show the title as plain text (MVP).

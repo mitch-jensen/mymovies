@@ -11,6 +11,11 @@ linters:
     # repetitive; dupl flags this legitimate pattern with no useful dedup.
     - dupl
   settings:
+    tagalign:
+      # Enforce tag ordering, but not cosmetic vertical alignment — alignment
+      # padding fights structs that mix huma validation tags (default/min/max).
+      align: false
+      sort: true
     depguard:
       rules:
         Main:
