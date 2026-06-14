@@ -56,25 +56,38 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
       physical location. `GET /search?q=`.
 
 ### Phase 4 — Frontend (full-stack)
-- [ ] Pick the stack (see Open decisions).
-- [ ] Render bookcases/shelves with realistic spines.
+- [ ] Pick the stack (deferred; see Open decisions).
+- [ ] Generate a fully-typed TypeScript client from the OpenAPI spec.
+- [ ] Render bookcases/shelves; spines show the title as plain text (MVP).
 - [ ] Search → highlight a movie's location.
+- [ ] (Post-MVP) Realistic spine appearance.
 
 ### Cross-cutting backlog
+- [ ] **API DTOs vs. db types:** handlers currently return sqlc-generated structs
+      (`db.Movie`) directly, leaking DB types into the OpenAPI contract / TS
+      client. Define explicit request/response types so the public schema is
+      decoupled from the database. Matters because of the schema-first approach.
 - [ ] API-level (httptest) tests for handlers once the shared harness exists.
 - [ ] Pagination on list endpoints.
 - [ ] Request validation via huma input tags.
 - [ ] CI (GitHub Actions) running `just check`.
 - [ ] Serve the auto-generated OpenAPI / docs UI from huma.
 
+## Decisions made
+- **Single-user, local-only, no auth.** Runs locally for one user; no
+  authentication/authorization layer.
+- **Placement:** dedicated `placements` table (release ↔ shelf + ordered
+  position), not columns on `home_video_releases`.
+- **Schema-first API:** huma's generated OpenAPI spec is the contract; the
+  frontend consumes a fully-typed TypeScript client generated from it.
+- **Spine rendering (MVP):** plain-text movie title on a spine shape. No spine
+  appearance data (dimensions/colour/art) in the MVP.
+- **Frontend stack:** deferred until the backend is more feature-complete.
+
 ## Open decisions
-- **Placement modelling:** dedicated `placements` table (allows history/empty
-  slots) vs. `shelf_id` + `position` columns on `home_video_releases` (simpler).
-  Leaning: dedicated table.
-- **Spine appearance data:** where to store dimensions/colour/art for rendering.
-- **Frontend stack:** framework + how it talks to the API (the OpenAPI spec huma
-  generates could drive a typed client).
-- **Single-user vs. auth:** assume single-user for now?
+- **Frontend stack:** chosen later, once the backend stabilises (will consume the
+  generated TypeScript client).
+- **Spine appearance data (post-MVP):** where to store dimensions/colour/art.
 
 ## How to resume
 1. Read this file and [AGENTS.md](AGENTS.md).
