@@ -48,6 +48,7 @@ func NewServer(pool *pgxpool.Pool) *Server {
 		api:     humaAPI,
 	}
 	server.registerMovieRoutes()
+	server.registerReleaseRoutes()
 
 	return server
 }

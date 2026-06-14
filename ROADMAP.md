@@ -45,7 +45,10 @@ bookcase 1───* shelf 1───* placement *───1 home_video_release 
       has real httptest handler tests.
 - [x] API DTOs (`Movie`, `MovieFields`) decouple the schema from db types — done
       early because of the schema-first / typed-client goal.
-- [ ] Queries + routes for `home_video_releases` (CRUD, linked to a movie).
+- [x] `home_video_releases` CRUD: queries + `Release`/`ReleaseFields` DTOs +
+      routes (`POST`/`GET /movies/{movieId}/releases`, `GET`/`PUT`/`DELETE
+      /releases/{id}`), with creation 404ing on a missing movie. dbstore + api
+      tests cover it.
 
 ### Phase 2 — Physical location domain
 - [ ] Migration: `bookcases`, `shelves`, and placement of releases onto shelves
