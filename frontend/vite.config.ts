@@ -1,10 +1,10 @@
-import react from '@vitejs/plugin-react'
 // In newer @tanstack/router-plugin this export may be named `tanstackRouter`.
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 // The Go backend listens on :8081 locally (SERVER_PORT in .env). In Docker the
-// compose file sets VITE_API_TARGET to the backend service URL.
+// Compose file sets VITE_API_TARGET to the backend service URL.
 const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8081'
 
 // Proxy API calls to the backend so the client uses relative URLs and we avoid
@@ -12,9 +12,9 @@ const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8081'
 // `vite preview` server used in the production container.
 const proxy = {
   '/api': {
-    target: apiTarget,
     changeOrigin: true,
-    rewrite: (path: string) => path.replace(/^\/api/, ''),
+    rewrite: (path: string) => path.replace(/^\/api/u, ''),
+    target: apiTarget,
   },
 }
 
@@ -24,6 +24,6 @@ export default defineConfig({
     TanStackRouterVite(),
     react(),
   ],
-  server: { proxy },
   preview: { proxy },
+  server: { proxy },
 })

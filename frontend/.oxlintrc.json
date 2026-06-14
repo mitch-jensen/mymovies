@@ -12,5 +12,26 @@
     "pedantic": "warn",
     "style": "warn"
   },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-max-depth": "off",
+    "import/prefer-default-export": "off",
+    "import/consistent-type-specifier-style": ["error", "prefer-inline"],
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "func-style": ["error", "declaration"],
+    "sort-imports": ["error", { "allowSeparatedGroups": true }],
+    "unicorn/prefer-query-selector": "off",
+    "unicorn/filename-case": [
+      "error",
+      { "cases": { "camelCase": true, "pascalCase": true, "kebabCase": true } }
+    ],
+    "id-length": "off",
+    "max-lines-per-function": "off",
+    "new-cap": "off",
+    "no-magic-numbers": "off",
+    "no-ternary": "off",
+    "no-named-export": "off",
+    "exports-last": "off"
+  },
   "ignorePatterns": ["dist", "node_modules", "src/client", "src/routeTree.gen.ts"]
 }

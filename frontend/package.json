@@ -1,7 +1,7 @@
 {
   "name": "mymovies-frontend",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,9 @@
     "gen": "openapi-ts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
@@ -26,8 +27,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "oxfmt": "^0.54.0",
     "oxlint": "^1.69.0",
-    "prettier": "^3.8.4",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
   }

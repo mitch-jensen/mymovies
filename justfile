@@ -126,9 +126,13 @@ fe-lint:
 
 # Format the frontend with Prettier.
 fe-format:
-  pnpm --dir frontend format
+  pnpm --dir frontend fmt
 
-# Frontend verification suite: lint + format check.
+fe-typecheck:
+  pnpm --dir frontend typecheck
+
+# Frontend verification suite: lint + format + type check.
 fe-check:
   pnpm --dir frontend lint
-  pnpm --dir frontend format:check
+  pnpm --dir frontend fmt:check
+  pnpm --dir frontend typecheck
