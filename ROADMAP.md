@@ -112,11 +112,17 @@ Engine behaviour:
 - [x] Stack chosen (see Decisions made).
 - [x] Scaffolded `frontend/`: Vite + React + TS, TanStack Router (file-based) +
       Query, `@hey-api/openapi-ts` client gen wired to `../openapi.yaml`, dev
-      proxy `/api` → backend `:8081`. First screen = search with inline location.
-      *Pending the user's first `pnpm install` / `pnpm gen` / `pnpm dev` — may
-      need version/import tweaks (can't verify Node tooling here).*
-- [ ] Generate the typed client (`pnpm gen`) and get the search screen running.
-- [ ] Render bookcases/shelves; spines show the title as plain text (MVP).
+      proxy `/api` → backend.
+- [x] Typed client generated (`just fe-sync`); **Search** screen running — fuzzy
+      search with each copy's inline location (positions shown 1-based).
+- [x] Render bookcases/shelves: `/shelves` view renders each bookcase → shelves →
+      vertical plain-text spines (MVP); nav between Search and Shelves.
+- [x] Vitest set up for frontend TDD (`just fe-test`, in `just fe-check`);
+      run the app via compose (`just up`).
+- [ ] **Shelves page — one bookcase at a time.** Default to showing a single
+      bookcase rather than all stacked; add a selector/carousel component to
+      switch between bookcases (they have an ordered `position`). Support
+      vertical scroll within a tall bookcase (many/long shelves).
 - [ ] Manage collection from the UI (add movies/releases, place on shelves).
 - [ ] (Post-MVP) Realistic spine appearance.
 
@@ -156,6 +162,12 @@ Engine behaviour:
   no third type system. This is the intended home for the Phase 5 packing engine.
 - **Placement:** dedicated `placements` table (release ↔ shelf + ordered
   position), not columns on `home_video_releases`.
+- **1-based positions in the UI.** Shelves/slots are stored 0-based but always
+  shown to the user starting at 1 (via `displayPosition`); storage/API stay
+  0-based. Apply this wherever a position surfaces.
+- **Frontend tooling:** Vitest + Testing Library for TDD (`just fe-test`,
+  bundled into `just fe-check`); run the app only via the compose stack
+  (`just up`), never a dev server.
 - **Schema-first API:** huma's generated OpenAPI spec is the contract; the
   frontend consumes a fully-typed TypeScript client generated from it.
 - **Spine rendering (MVP):** plain-text movie title on a spine shape. No spine
