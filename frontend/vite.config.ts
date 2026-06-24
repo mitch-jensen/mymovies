@@ -18,12 +18,16 @@ const proxy = {
   },
 }
 
-export default defineConfig({
-  plugins: [
+export default defineConfig(({ isPreview }) => ({
+  // `vite preview` (used by the production container) only serves the prebuilt
+  // dist/ and proxies /api, so skip the build-time plugins. They would
+  // otherwise try to (re)generate the route tree into src/, which isn't present
+  // in the runtime image.
+  plugins: isPreview ? [] : [
     // The router plugin must run before the React plugin.
     TanStackRouterVite(),
     react(),
   ],
   preview: { proxy },
   server: { proxy },
-})
+}))
