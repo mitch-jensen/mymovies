@@ -2,7 +2,6 @@ services:
   mymovies:
     build:
       context: .
-      network: host
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -18,7 +17,6 @@ services:
     build:
       context: ./frontend
       target: runtime
-      network: host
     environment:
       # Reach the backend over the compose network (container port, not 8081).
       VITE_API_TARGET: http://mymovies:8000
