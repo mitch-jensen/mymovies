@@ -37,6 +37,7 @@ linters:
             - github.com/spf13/viper$
             - github.com/mitch-jensen/mymovies/dbstore$
             - github.com/mitch-jensen/mymovies/internal/api$
+            - github.com/mitch-jensen/mymovies/internal/collection$
             - github.com/mitch-jensen/mymovies/internal/config$
           deny:
             - pkg: reflect$
@@ -69,6 +70,7 @@ linters:
             - github.com/jackc/pgx/v5/stdlib$
             - github.com/mitch-jensen/mymovies/dbstore$
             - github.com/mitch-jensen/mymovies/internal/api$
+            - github.com/mitch-jensen/mymovies/internal/collection$
             - github.com/mitch-jensen/mymovies/internal/config$
             - github.com/mitch-jensen/mymovies/internal/testdb$
             - github.com/mitch-jensen/mymovies/ptr$

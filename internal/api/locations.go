@@ -2,13 +2,11 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	db "github.com/mitch-jensen/mymovies/dbstore"
 )
 
@@ -220,9 +218,9 @@ type ListBookcasesOutput struct {
 }
 
 func (s *Server) listBookcases(ctx context.Context, _ *struct{}) (*ListBookcasesOutput, error) {
-	bookcases, err := s.queries.ListBookcases(ctx)
+	bookcases, err := s.collection.ListBookcases(ctx)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to list bookcases", err)
+		return nil, mapErr(err)
 	}
 
 	body := make([]Bookcase, len(bookcases))
@@ -234,51 +232,43 @@ func (s *Server) listBookcases(ctx context.Context, _ *struct{}) (*ListBookcases
 }
 
 func (s *Server) createBookcase(ctx context.Context, input *BookcaseInput) (*BookcaseOutput, error) {
-	bookcase, err := s.queries.CreateBookcase(ctx, db.CreateBookcaseParams{
+	bookcase, err := s.collection.CreateBookcase(ctx, db.CreateBookcaseParams{
 		Name:     input.Body.Name,
 		Position: input.Body.Position,
 	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to create bookcase", err)
+		return nil, mapErr(err)
 	}
 
 	return &BookcaseOutput{Body: bookcaseFromDB(bookcase)}, nil
 }
 
 func (s *Server) getBookcase(ctx context.Context, input *BookcaseIDInput) (*BookcaseOutput, error) {
-	bookcase, err := s.queries.GetBookcase(ctx, input.ID)
+	bookcase, err := s.collection.GetBookcase(ctx, input.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("bookcase not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to get bookcase", err)
+		return nil, mapErr(err)
 	}
 
 	return &BookcaseOutput{Body: bookcaseFromDB(bookcase)}, nil
 }
 
 func (s *Server) updateBookcase(ctx context.Context, input *UpdateBookcaseInput) (*BookcaseOutput, error) {
-	bookcase, err := s.queries.UpdateBookcase(ctx, db.UpdateBookcaseParams{
+	bookcase, err := s.collection.UpdateBookcase(ctx, db.UpdateBookcaseParams{
 		ID:       input.ID,
 		Name:     input.Body.Name,
 		Position: input.Body.Position,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("bookcase not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to update bookcase", err)
+		return nil, mapErr(err)
 	}
 
 	return &BookcaseOutput{Body: bookcaseFromDB(bookcase)}, nil
 }
 
 func (s *Server) deleteBookcase(ctx context.Context, input *BookcaseIDInput) (*struct{}, error) {
-	err := s.queries.DeleteBookcase(ctx, input.ID)
+	err := s.collection.DeleteBookcase(ctx, input.ID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to delete bookcase", err)
+		return nil, mapErr(err)
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.
@@ -317,9 +307,9 @@ type ListShelvesOutput struct {
 }
 
 func (s *Server) listBookcaseShelves(ctx context.Context, input *ShelvesInput) (*ListShelvesOutput, error) {
-	shelves, err := s.queries.ListShelvesByBookcase(ctx, input.BookcaseID)
+	shelves, err := s.collection.ListShelvesByBookcase(ctx, input.BookcaseID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to list shelves", err)
+		return nil, mapErr(err)
 	}
 
 	body := make([]Shelf, len(shelves))
@@ -332,46 +322,38 @@ func (s *Server) listBookcaseShelves(ctx context.Context, input *ShelvesInput) (
 
 func (s *Server) createShelf(ctx context.Context, input *CreateShelfInput) (*ShelfOutput, error) {
 	// Confirm the bookcase exists so a missing one yields 404, not a raw FK error.
-	_, err := s.queries.GetBookcase(ctx, input.BookcaseID)
+	_, err := s.collection.GetBookcase(ctx, input.BookcaseID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("bookcase not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to look up bookcase", err)
+		return nil, mapErr(err)
 	}
 
-	shelf, err := s.queries.CreateShelf(ctx, db.CreateShelfParams{
+	shelf, err := s.collection.CreateShelf(ctx, db.CreateShelfParams{
 		BookcaseID: input.BookcaseID,
 		Position:   input.Body.Position,
 	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to create shelf", err)
+		return nil, mapErr(err)
 	}
 
 	return &ShelfOutput{Body: shelfFromDB(shelf)}, nil
 }
 
 func (s *Server) updateShelf(ctx context.Context, input *UpdateShelfInput) (*ShelfOutput, error) {
-	shelf, err := s.queries.UpdateShelf(ctx, db.UpdateShelfParams{
+	shelf, err := s.collection.UpdateShelf(ctx, db.UpdateShelfParams{
 		ID:       input.ID,
 		Position: input.Body.Position,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("shelf not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to update shelf", err)
+		return nil, mapErr(err)
 	}
 
 	return &ShelfOutput{Body: shelfFromDB(shelf)}, nil
 }
 
 func (s *Server) deleteShelf(ctx context.Context, input *ShelfIDInput) (*struct{}, error) {
-	err := s.queries.DeleteShelf(ctx, input.ID)
+	err := s.collection.DeleteShelf(ctx, input.ID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to delete shelf", err)
+		return nil, mapErr(err)
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.
@@ -390,40 +372,32 @@ type PlacementOutput struct {
 }
 
 func (s *Server) placeRelease(ctx context.Context, input *PlaceReleaseInput) (*PlacementOutput, error) {
-	_, err := s.queries.GetHomeVideoRelease(ctx, input.ID)
+	_, err := s.collection.GetRelease(ctx, input.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("release not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to look up release", err)
+		return nil, mapErr(err)
 	}
 
-	_, err = s.queries.GetShelf(ctx, input.Body.ShelfID)
+	_, err = s.collection.GetShelf(ctx, input.Body.ShelfID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("shelf not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to look up shelf", err)
+		return nil, mapErr(err)
 	}
 
-	placement, err := s.queries.PlaceRelease(ctx, db.PlaceReleaseParams{
+	placement, err := s.collection.PlaceRelease(ctx, db.PlaceReleaseParams{
 		ReleaseID: input.ID,
 		ShelfID:   input.Body.ShelfID,
 		Position:  input.Body.Position,
 	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to place release", err)
+		return nil, mapErr(err)
 	}
 
 	return &PlacementOutput{Body: placementFromDB(placement)}, nil
 }
 
 func (s *Server) removePlacement(ctx context.Context, input *ReleaseIDInput) (*struct{}, error) {
-	err := s.queries.RemovePlacement(ctx, input.ID)
+	err := s.collection.RemovePlacement(ctx, input.ID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to remove placement", err)
+		return nil, mapErr(err)
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.
@@ -435,13 +409,9 @@ type LocationOutput struct {
 }
 
 func (s *Server) locateRelease(ctx context.Context, input *ReleaseIDInput) (*LocationOutput, error) {
-	row, err := s.queries.LocateRelease(ctx, input.ID)
+	row, err := s.collection.LocateRelease(ctx, input.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("release is not placed anywhere")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to locate release", err)
+		return nil, mapErr(err)
 	}
 
 	return &LocationOutput{Body: Location{

@@ -2,12 +2,10 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	db "github.com/mitch-jensen/mymovies/dbstore"
 )
 
@@ -89,9 +87,9 @@ type ListMoviesOutput struct {
 }
 
 func (s *Server) listMovies(ctx context.Context, _ *struct{}) (*ListMoviesOutput, error) {
-	movies, err := s.queries.ListMovies(ctx)
+	movies, err := s.collection.ListMovies(ctx)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to list movies", err)
+		return nil, mapErr(err)
 	}
 
 	body := make([]Movie, len(movies))
@@ -113,26 +111,22 @@ type MovieOutput struct {
 }
 
 func (s *Server) createMovie(ctx context.Context, input *MovieInput) (*MovieOutput, error) {
-	movie, err := s.queries.CreateMovie(ctx, db.CreateMovieParams{
+	movie, err := s.collection.CreateMovie(ctx, db.CreateMovieParams{
 		Title:       input.Body.Title,
 		ReleaseYear: input.Body.ReleaseYear,
 		RuntimeMin:  input.Body.RuntimeMin,
 	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to create movie", err)
+		return nil, mapErr(err)
 	}
 
 	return &MovieOutput{Body: movieFromDB(movie)}, nil
 }
 
 func (s *Server) getMovie(ctx context.Context, input *MovieIDInput) (*MovieOutput, error) {
-	movie, err := s.queries.GetMovie(ctx, input.ID)
+	movie, err := s.collection.GetMovie(ctx, input.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("movie not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to get movie", err)
+		return nil, mapErr(err)
 	}
 
 	return &MovieOutput{Body: movieFromDB(movie)}, nil
@@ -146,27 +140,23 @@ type UpdateMovieInput struct {
 }
 
 func (s *Server) updateMovie(ctx context.Context, input *UpdateMovieInput) (*MovieOutput, error) {
-	movie, err := s.queries.UpdateMovie(ctx, db.UpdateMovieParams{
+	movie, err := s.collection.UpdateMovie(ctx, db.UpdateMovieParams{
 		ID:          input.ID,
 		Title:       input.Body.Title,
 		ReleaseYear: input.Body.ReleaseYear,
 		RuntimeMin:  input.Body.RuntimeMin,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("movie not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to update movie", err)
+		return nil, mapErr(err)
 	}
 
 	return &MovieOutput{Body: movieFromDB(movie)}, nil
 }
 
 func (s *Server) deleteMovie(ctx context.Context, input *MovieIDInput) (*struct{}, error) {
-	err := s.queries.DeleteMovie(ctx, input.ID)
+	err := s.collection.DeleteMovie(ctx, input.ID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to delete movie", err)
+		return nil, mapErr(err)
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.

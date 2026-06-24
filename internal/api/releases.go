@@ -2,13 +2,11 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	db "github.com/mitch-jensen/mymovies/dbstore"
 	"github.com/shopspring/decimal"
 )
@@ -160,9 +158,9 @@ type ListReleasesOutput struct {
 }
 
 func (s *Server) listMovieReleases(ctx context.Context, input *MovieReleasesInput) (*ListReleasesOutput, error) {
-	releases, err := s.queries.ListHomeVideoReleasesByMovie(ctx, input.MovieID)
+	releases, err := s.collection.ListReleasesByMovie(ctx, input.MovieID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to list releases", err)
+		return nil, mapErr(err)
 	}
 
 	body := make([]Release, len(releases))
@@ -176,53 +174,41 @@ func (s *Server) listMovieReleases(ctx context.Context, input *MovieReleasesInpu
 func (s *Server) createRelease(ctx context.Context, input *CreateReleaseInput) (*ReleaseOutput, error) {
 	// Confirm the movie exists so a missing movie yields 404 rather than a raw
 	// foreign-key error.
-	_, err := s.queries.GetMovie(ctx, input.MovieID)
+	_, err := s.collection.GetMovie(ctx, input.MovieID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("movie not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to look up movie", err)
+		return nil, mapErr(err)
 	}
 
-	release, err := s.queries.CreateHomeVideoRelease(ctx, createParams(input.MovieID, input.Body))
+	release, err := s.collection.CreateRelease(ctx, createParams(input.MovieID, input.Body))
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to create release", err)
+		return nil, mapErr(err)
 	}
 
 	return &ReleaseOutput{Body: releaseFromDB(release)}, nil
 }
 
 func (s *Server) getRelease(ctx context.Context, input *ReleaseIDInput) (*ReleaseOutput, error) {
-	release, err := s.queries.GetHomeVideoRelease(ctx, input.ID)
+	release, err := s.collection.GetRelease(ctx, input.ID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("release not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to get release", err)
+		return nil, mapErr(err)
 	}
 
 	return &ReleaseOutput{Body: releaseFromDB(release)}, nil
 }
 
 func (s *Server) updateRelease(ctx context.Context, input *UpdateReleaseInput) (*ReleaseOutput, error) {
-	release, err := s.queries.UpdateHomeVideoRelease(ctx, updateParams(input.ID, input.Body))
+	release, err := s.collection.UpdateRelease(ctx, updateParams(input.ID, input.Body))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, huma.Error404NotFound("release not found")
-		}
-
-		return nil, huma.Error500InternalServerError("failed to update release", err)
+		return nil, mapErr(err)
 	}
 
 	return &ReleaseOutput{Body: releaseFromDB(release)}, nil
 }
 
 func (s *Server) deleteRelease(ctx context.Context, input *ReleaseIDInput) (*struct{}, error) {
-	err := s.queries.DeleteHomeVideoRelease(ctx, input.ID)
+	err := s.collection.DeleteRelease(ctx, input.ID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to delete release", err)
+		return nil, mapErr(err)
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.

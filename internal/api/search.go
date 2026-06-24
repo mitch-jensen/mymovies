@@ -49,12 +49,12 @@ func (s *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput,
 		return &SearchOutput{Body: []SearchResult{}}, nil
 	}
 
-	movies, err := s.queries.SearchMovies(ctx, db.SearchMoviesParams{
+	movies, err := s.collection.SearchMovies(ctx, db.SearchMoviesParams{
 		Query:       query,
 		ResultLimit: int32(input.Limit), //nolint:gosec // bounded to [1,100] by huma validation.
 	})
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to search movies", err)
+		return nil, mapErr(err)
 	}
 
 	if len(movies) == 0 {
@@ -92,9 +92,9 @@ func (s *Server) locatedReleasesByMovie(
 		movieIDs[i] = movie.ID
 	}
 
-	rows, err := s.queries.ListLocatedReleasesByMovies(ctx, movieIDs)
+	rows, err := s.collection.ListLocatedReleasesByMovies(ctx, movieIDs)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to load release locations", err)
+		return nil, mapErr(err)
 	}
 
 	byMovie := make(map[uuid.UUID][]LocatedRelease)

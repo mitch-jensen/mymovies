@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/mitch-jensen/mymovies/internal/collection"
 )
 
 const (
@@ -26,9 +26,9 @@ const (
 
 // Server serves the movie API over HTTP.
 type Server struct {
-	queries *db.Queries
-	router  *chi.Mux
-	api     huma.API
+	collection *collection.Collection
+	router     *chi.Mux
+	api        huma.API
 }
 
 // NewServer builds a movie API server backed by the given database pool.
@@ -43,9 +43,9 @@ func NewServer(pool *pgxpool.Pool) *Server {
 	humaAPI := humachi.New(router, humaConfig)
 
 	server := &Server{
-		queries: db.New(pool),
-		router:  router,
-		api:     humaAPI,
+		collection: collection.New(pool),
+		router:     router,
+		api:        humaAPI,
 	}
 	server.registerMovieRoutes()
 	server.registerReleaseRoutes()
