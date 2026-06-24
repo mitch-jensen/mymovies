@@ -172,13 +172,6 @@ func (s *Server) listMovieReleases(ctx context.Context, input *MovieReleasesInpu
 }
 
 func (s *Server) createRelease(ctx context.Context, input *CreateReleaseInput) (*ReleaseOutput, error) {
-	// Confirm the movie exists so a missing movie yields 404 rather than a raw
-	// foreign-key error.
-	_, err := s.collection.GetMovie(ctx, input.MovieID)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-
 	release, err := s.collection.CreateRelease(ctx, createParams(input.MovieID, input.Body))
 	if err != nil {
 		return nil, mapErr(err)

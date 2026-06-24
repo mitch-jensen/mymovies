@@ -137,6 +137,14 @@ Engine behaviour:
 ## Decisions made
 - **Single-user, local-only, no auth.** Runs locally for one user; no
   authentication/authorization layer.
+- **Domain module (`internal/collection`).** A seam between the HTTP layer and
+  sqlc: it owns multi-step workflows (`Search` assembly, `PlaceRelease` /
+  `AddShelf` / `CreateRelease` existence checks) and translates `pgx.ErrNoRows`
+  into `collection.ErrNotFound`. `internal/api` no longer imports `pgx`; handlers
+  are thin (decode → call `collection` → `mapErr` → DTO) and a single `mapErr`
+  maps domain errors to HTTP status. The module returns `db.*` row types (and
+  `SearchResult`/`LocatedRelease` composites); `api` keeps owning DTO mapping —
+  no third type system. This is the intended home for the Phase 5 packing engine.
 - **Placement:** dedicated `placements` table (release ↔ shelf + ordered
   position), not columns on `home_video_releases`.
 - **Schema-first API:** huma's generated OpenAPI spec is the contract; the

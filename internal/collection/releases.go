@@ -17,10 +17,17 @@ func (c *Collection) ListReleasesByMovie(ctx context.Context, movieID uuid.UUID)
 	return releases, nil
 }
 
-// CreateRelease inserts a home video release and returns it.
+// CreateRelease adds a home video release to a movie. It returns ErrNotFound if
+// the owning movie does not exist, so a missing movie surfaces as 404 rather than
+// a raw foreign-key error.
 func (c *Collection) CreateRelease(
 	ctx context.Context, arg db.CreateHomeVideoReleaseParams,
 ) (db.HomeVideoRelease, error) {
+	_, err := c.q.GetMovie(ctx, arg.MovieID)
+	if err != nil {
+		return db.HomeVideoRelease{}, notFound("get movie", err)
+	}
+
 	release, err := c.q.CreateHomeVideoRelease(ctx, arg)
 	if err != nil {
 		return db.HomeVideoRelease{}, wrap("create release", err)

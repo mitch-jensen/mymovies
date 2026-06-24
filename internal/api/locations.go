@@ -321,16 +321,7 @@ func (s *Server) listBookcaseShelves(ctx context.Context, input *ShelvesInput) (
 }
 
 func (s *Server) createShelf(ctx context.Context, input *CreateShelfInput) (*ShelfOutput, error) {
-	// Confirm the bookcase exists so a missing one yields 404, not a raw FK error.
-	_, err := s.collection.GetBookcase(ctx, input.BookcaseID)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-
-	shelf, err := s.collection.CreateShelf(ctx, db.CreateShelfParams{
-		BookcaseID: input.BookcaseID,
-		Position:   input.Body.Position,
-	})
+	shelf, err := s.collection.AddShelf(ctx, input.BookcaseID, input.Body.Position)
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -372,21 +363,7 @@ type PlacementOutput struct {
 }
 
 func (s *Server) placeRelease(ctx context.Context, input *PlaceReleaseInput) (*PlacementOutput, error) {
-	_, err := s.collection.GetRelease(ctx, input.ID)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-
-	_, err = s.collection.GetShelf(ctx, input.Body.ShelfID)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-
-	placement, err := s.collection.PlaceRelease(ctx, db.PlaceReleaseParams{
-		ReleaseID: input.ID,
-		ShelfID:   input.Body.ShelfID,
-		Position:  input.Body.Position,
-	})
+	placement, err := s.collection.PlaceRelease(ctx, input.ID, input.Body.ShelfID, input.Body.Position)
 	if err != nil {
 		return nil, mapErr(err)
 	}

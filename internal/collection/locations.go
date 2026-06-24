@@ -67,21 +67,18 @@ func (c *Collection) ListShelvesByBookcase(ctx context.Context, bookcaseID uuid.
 	return shelves, nil
 }
 
-// CreateShelf inserts a shelf and returns it.
-func (c *Collection) CreateShelf(ctx context.Context, arg db.CreateShelfParams) (db.Shelf, error) {
-	shelf, err := c.q.CreateShelf(ctx, arg)
+// AddShelf adds a shelf to a bookcase. It returns ErrNotFound if the bookcase
+// does not exist, so a missing bookcase surfaces as 404 rather than a raw
+// foreign-key error.
+func (c *Collection) AddShelf(ctx context.Context, bookcaseID uuid.UUID, position int32) (db.Shelf, error) {
+	_, err := c.q.GetBookcase(ctx, bookcaseID)
 	if err != nil {
-		return db.Shelf{}, wrap("create shelf", err)
+		return db.Shelf{}, notFound("get bookcase", err)
 	}
 
-	return shelf, nil
-}
-
-// GetShelf returns the shelf with the given ID, or ErrNotFound if none exists.
-func (c *Collection) GetShelf(ctx context.Context, id uuid.UUID) (db.Shelf, error) {
-	shelf, err := c.q.GetShelf(ctx, id)
+	shelf, err := c.q.CreateShelf(ctx, db.CreateShelfParams{BookcaseID: bookcaseID, Position: position})
 	if err != nil {
-		return db.Shelf{}, notFound("get shelf", err)
+		return db.Shelf{}, wrap("create shelf", err)
 	}
 
 	return shelf, nil
@@ -108,8 +105,26 @@ func (c *Collection) DeleteShelf(ctx context.Context, id uuid.UUID) error {
 }
 
 // PlaceRelease places or moves a release onto a shelf and returns the placement.
-func (c *Collection) PlaceRelease(ctx context.Context, arg db.PlaceReleaseParams) (db.Placement, error) {
-	placement, err := c.q.PlaceRelease(ctx, arg)
+// It returns ErrNotFound if either the release or the target shelf does not
+// exist, so a missing one surfaces as 404 rather than a raw foreign-key error.
+func (c *Collection) PlaceRelease(
+	ctx context.Context, releaseID, shelfID uuid.UUID, position int32,
+) (db.Placement, error) {
+	_, err := c.q.GetHomeVideoRelease(ctx, releaseID)
+	if err != nil {
+		return db.Placement{}, notFound("get release", err)
+	}
+
+	_, err = c.q.GetShelf(ctx, shelfID)
+	if err != nil {
+		return db.Placement{}, notFound("get shelf", err)
+	}
+
+	placement, err := c.q.PlaceRelease(ctx, db.PlaceReleaseParams{
+		ReleaseID: releaseID,
+		ShelfID:   shelfID,
+		Position:  position,
+	})
 	if err != nil {
 		return db.Placement{}, wrap("place release", err)
 	}

@@ -3,11 +3,9 @@ package api
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/google/uuid"
-	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/mitch-jensen/mymovies/internal/collection"
 )
 
 func (s *Server) registerSearchRoutes() {
@@ -44,70 +42,36 @@ type SearchOutput struct {
 }
 
 func (s *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
-	query := strings.TrimSpace(input.Query)
-	if query == "" {
-		return &SearchOutput{Body: []SearchResult{}}, nil
-	}
+	limit := int32(input.Limit) //nolint:gosec // bounded to [1,100] by huma validation.
 
-	movies, err := s.collection.SearchMovies(ctx, db.SearchMoviesParams{
-		Query:       query,
-		ResultLimit: int32(input.Limit), //nolint:gosec // bounded to [1,100] by huma validation.
-	})
+	results, err := s.collection.Search(ctx, input.Query, limit)
 	if err != nil {
 		return nil, mapErr(err)
 	}
 
-	if len(movies) == 0 {
-		return &SearchOutput{Body: []SearchResult{}}, nil
+	body := make([]SearchResult, len(results))
+	for index, result := range results {
+		body[index] = searchResultFromDB(result)
 	}
 
-	located, err := s.locatedReleasesByMovie(ctx, movies)
-	if err != nil {
-		return nil, err
-	}
-
-	results := make([]SearchResult, len(movies))
-	for index, movie := range movies {
-		releases := located[movie.ID]
-		if releases == nil {
-			releases = []LocatedRelease{}
-		}
-
-		results[index] = SearchResult{
-			Movie:           movieFromDB(movie),
-			LocatedReleases: releases,
-		}
-	}
-
-	return &SearchOutput{Body: results}, nil
+	return &SearchOutput{Body: body}, nil
 }
 
-// locatedReleasesByMovie fetches the placed releases for the given movies and
-// groups them by movie ID.
-func (s *Server) locatedReleasesByMovie(
-	ctx context.Context, movies []db.Movie,
-) (map[uuid.UUID][]LocatedRelease, error) {
-	movieIDs := make([]uuid.UUID, len(movies))
-	for i, movie := range movies {
-		movieIDs[i] = movie.ID
-	}
-
-	rows, err := s.collection.ListLocatedReleasesByMovies(ctx, movieIDs)
-	if err != nil {
-		return nil, mapErr(err)
-	}
-
-	byMovie := make(map[uuid.UUID][]LocatedRelease)
-	for _, row := range rows {
-		byMovie[row.HomeVideoRelease.MovieID] = append(byMovie[row.HomeVideoRelease.MovieID], LocatedRelease{
-			Release: releaseFromDB(row.HomeVideoRelease),
+func searchResultFromDB(result collection.SearchResult) SearchResult {
+	located := make([]LocatedRelease, len(result.Releases))
+	for index, release := range result.Releases {
+		located[index] = LocatedRelease{
+			Release: releaseFromDB(release.Release),
 			Location: Location{
-				Bookcase:  bookcaseFromDB(row.Bookcase),
-				Shelf:     shelfFromDB(row.Shelf),
-				Placement: placementFromDB(row.Placement),
+				Bookcase:  bookcaseFromDB(release.Bookcase),
+				Shelf:     shelfFromDB(release.Shelf),
+				Placement: placementFromDB(release.Placement),
 			},
-		})
+		}
 	}
 
-	return byMovie, nil
+	return SearchResult{
+		Movie:           movieFromDB(result.Movie),
+		LocatedReleases: located,
+	}
 }
