@@ -28,7 +28,7 @@ If a requested change is genuinely not testable or a test would add no useful si
 ## Command Policy
 
 - Only run project commands through `just`.
-- Do not run `go`, `docker`, `sqlc`, `goose`, `golangci-lint`, shell scripts, or package-manager commands directly.
+- Do not run `go`, `docker`, `sqlc`, `goose`, or `golangci-lint` directly — go through `just`. (Frontend pnpm tooling has its own policy below.)
 - If a needed workflow is not available as a `just` recipe, update the `justfile` first, then run the new or existing recipe through `just`.
 - Prefer existing recipes over adding new ones.
 - Do not bypass the `justfile` for one-off checks.
@@ -40,6 +40,16 @@ Examples:
 - Use `just sqlc`, not `sqlc generate`.
 - Use `just migrate-up`, not `goose up`.
 - Use `just db-up`, not `docker compose up -d db`.
+
+## Frontend Policy
+
+- pnpm/npm commands are allowed, but run them through `just` where a recipe fits
+  (`fe-install`, `fe-gen`, `fe-sync`, `fe-lint`, `fe-format`, `fe-typecheck`,
+  `fe-check`). Add a recipe if a needed workflow is missing.
+- Never start the frontend dev server (`pnpm dev` / `npm run dev` / `vite`).
+- Run the frontend via the compose stack: `just up` (served at
+  http://127.0.0.1:4173), inspect with `just logs frontend`.
+- Use `just fe-check` to verify frontend changes (oxlint + oxfmt + tsc).
 
 ## Go Workflow
 

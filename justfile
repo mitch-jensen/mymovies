@@ -116,7 +116,7 @@ down:
 logs *args:
   docker compose logs -f {{args}}
 
-# --- Frontend (run on host; user drives pnpm) --------------------------------
+# --- Frontend (codegen/lint via pnpm; RUN the app via `just up`, never a dev server) ---
 
 # Install frontend dependencies.
 fe-install:
@@ -125,6 +125,13 @@ fe-install:
 # Regenerate the typed client from frontend/openapi.yaml (run `just openapi` first).
 fe-gen:
   pnpm --dir frontend gen
+
+# Refresh the OpenAPI spec from the backend and regenerate the typed client.
+fe-sync: openapi fe-gen
+
+# Build the frontend (regenerates routeTree.gen.ts via the router plugin, then tsc).
+fe-build:
+  pnpm --dir frontend build
 
 # Lint the frontend with oxlint.
 fe-lint:
