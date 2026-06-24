@@ -1,5 +1,14 @@
 version: 2
+
 enable-beta-ecosystems: true
+
+registries:
+  docker-hardened:
+    type: docker-registry
+    url: dhi.io
+    username: ${{ secrets.DHI_USERNAME }}
+    password: ${{ secrets.DHI_TOKEN }}
+
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
@@ -13,12 +22,16 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    registries:
+      - docker-hardened
   - package-ecosystem: "docker"
     directories:
       - "/"
       - "frontend"
     schedule:
       interval: "daily"
+    registries:
+      - docker-hardened
   - package-ecosystem: "npm"
     directory: "frontend"
     schedule:
