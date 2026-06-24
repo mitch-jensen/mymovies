@@ -17,7 +17,10 @@
     "react/jsx-max-depth": "off",
     "import/prefer-default-export": "off",
     "import/consistent-type-specifier-style": ["error", "prefer-inline"],
-    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "import/no-unassigned-import": [
+      "error",
+      { "allow": ["**/*.css", "@testing-library/jest-dom/vitest"] }
+    ],
     "func-style": ["error", "declaration"],
     "sort-imports": ["error", { "allowSeparatedGroups": true }],
     "unicorn/prefer-query-selector": "off",

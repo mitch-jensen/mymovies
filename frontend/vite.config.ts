@@ -20,9 +20,9 @@ const proxy = {
 
 export default defineConfig(({ isPreview }) => ({
   // `vite preview` (used by the production container) only serves the prebuilt
-  // dist/ and proxies /api, so skip the build-time plugins. They would
-  // otherwise try to (re)generate the route tree into src/, which isn't present
-  // in the runtime image.
+  // Dist/ and proxies /api, so skip the build-time plugins. They would
+  // Otherwise try to (re)generate the route tree into src/, which isn't present
+  // In the runtime image.
   plugins: isPreview
     ? []
     : [

@@ -144,8 +144,13 @@ fe-format:
 fe-typecheck:
   pnpm --dir frontend typecheck
 
-# Frontend verification suite: lint + format + type check.
+# Run the frontend unit/component tests once (Vitest).
+fe-test:
+  pnpm --dir frontend test
+
+# Frontend verification suite: lint + format + type check + tests.
 fe-check:
   pnpm --dir frontend lint
   pnpm --dir frontend fmt:check
   pnpm --dir frontend typecheck
+  pnpm --dir frontend test
