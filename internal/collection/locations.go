@@ -1,0 +1,183 @@
+package collection
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	db "github.com/mitch-jensen/mymovies/dbstore"
+)
+
+// ListBookcases returns all bookcases.
+func (c *Collection) ListBookcases(ctx context.Context) ([]db.Bookcase, error) {
+	bookcases, err := c.q.ListBookcases(ctx)
+	if err != nil {
+		return nil, wrap("list bookcases", err)
+	}
+
+	return bookcases, nil
+}
+
+// CreateBookcase inserts a bookcase and returns it.
+func (c *Collection) CreateBookcase(ctx context.Context, arg db.CreateBookcaseParams) (db.Bookcase, error) {
+	bookcase, err := c.q.CreateBookcase(ctx, arg)
+	if err != nil {
+		return db.Bookcase{}, wrap("create bookcase", err)
+	}
+
+	return bookcase, nil
+}
+
+// GetBookcase returns the bookcase with the given ID, or ErrNotFound if none exists.
+func (c *Collection) GetBookcase(ctx context.Context, id uuid.UUID) (db.Bookcase, error) {
+	bookcase, err := c.q.GetBookcase(ctx, id)
+	if err != nil {
+		return db.Bookcase{}, notFound("get bookcase", err)
+	}
+
+	return bookcase, nil
+}
+
+// UpdateBookcase updates a bookcase and returns it, or ErrNotFound if none exists.
+func (c *Collection) UpdateBookcase(ctx context.Context, arg db.UpdateBookcaseParams) (db.Bookcase, error) {
+	bookcase, err := c.q.UpdateBookcase(ctx, arg)
+	if err != nil {
+		return db.Bookcase{}, notFound("update bookcase", err)
+	}
+
+	return bookcase, nil
+}
+
+// DeleteBookcase removes a bookcase by ID.
+func (c *Collection) DeleteBookcase(ctx context.Context, id uuid.UUID) error {
+	err := c.q.DeleteBookcase(ctx, id)
+	if err != nil {
+		return wrap("delete bookcase", err)
+	}
+
+	return nil
+}
+
+// ListShelvesByBookcase returns the shelves of a bookcase.
+func (c *Collection) ListShelvesByBookcase(ctx context.Context, bookcaseID uuid.UUID) ([]db.Shelf, error) {
+	shelves, err := c.q.ListShelvesByBookcase(ctx, bookcaseID)
+	if err != nil {
+		return nil, wrap("list shelves", err)
+	}
+
+	return shelves, nil
+}
+
+// AddShelf adds a shelf to a bookcase. It returns ErrNotFound if the bookcase
+// does not exist, so a missing bookcase surfaces as 404 rather than a raw
+// foreign-key error.
+func (c *Collection) AddShelf(ctx context.Context, bookcaseID uuid.UUID, position int32) (db.Shelf, error) {
+	_, err := c.q.GetBookcase(ctx, bookcaseID)
+	if err != nil {
+		return db.Shelf{}, notFound("get bookcase", err)
+	}
+
+	shelf, err := c.q.CreateShelf(ctx, db.CreateShelfParams{BookcaseID: bookcaseID, Position: position})
+	if err != nil {
+		return db.Shelf{}, wrap("create shelf", err)
+	}
+
+	return shelf, nil
+}
+
+// UpdateShelf updates a shelf and returns it, or ErrNotFound if none exists.
+func (c *Collection) UpdateShelf(ctx context.Context, arg db.UpdateShelfParams) (db.Shelf, error) {
+	shelf, err := c.q.UpdateShelf(ctx, arg)
+	if err != nil {
+		return db.Shelf{}, notFound("update shelf", err)
+	}
+
+	return shelf, nil
+}
+
+// DeleteShelf removes a shelf by ID.
+func (c *Collection) DeleteShelf(ctx context.Context, id uuid.UUID) error {
+	err := c.q.DeleteShelf(ctx, id)
+	if err != nil {
+		return wrap("delete shelf", err)
+	}
+
+	return nil
+}
+
+// PlaceRelease places or moves a release onto a shelf and returns the placement.
+// It returns ErrNotFound if either the release or the target shelf does not
+// exist, so a missing one surfaces as 404 rather than a raw foreign-key error.
+func (c *Collection) PlaceRelease(
+	ctx context.Context, releaseID, shelfID uuid.UUID, position int32,
+) (db.Placement, error) {
+	_, err := c.q.GetHomeVideoRelease(ctx, releaseID)
+	if err != nil {
+		return db.Placement{}, notFound("get release", err)
+	}
+
+	_, err = c.q.GetShelf(ctx, shelfID)
+	if err != nil {
+		return db.Placement{}, notFound("get shelf", err)
+	}
+
+	placement, err := c.q.PlaceRelease(ctx, db.PlaceReleaseParams{
+		ReleaseID: releaseID,
+		ShelfID:   shelfID,
+		Position:  position,
+	})
+	if err != nil {
+		return db.Placement{}, wrap("place release", err)
+	}
+
+	return placement, nil
+}
+
+// RemovePlacement removes a release from its shelf.
+func (c *Collection) RemovePlacement(ctx context.Context, releaseID uuid.UUID) error {
+	err := c.q.RemovePlacement(ctx, releaseID)
+	if err != nil {
+		return wrap("remove placement", err)
+	}
+
+	return nil
+}
+
+// ShelfPlacement is a release placed on a shelf, together with the movie it is a
+// copy of — enough to render the spine and know its slot.
+type ShelfPlacement struct {
+	Placement db.Placement
+	Release   db.HomeVideoRelease
+	Movie     db.Movie
+}
+
+// ShelfContents returns everything placed on a shelf, in slot order, each with
+// its release and movie. It is the shelf-rendering feed; the result is empty when
+// the shelf holds nothing (or does not exist).
+func (c *Collection) ShelfContents(ctx context.Context, shelfID uuid.UUID) ([]ShelfPlacement, error) {
+	rows, err := c.q.ListPlacementsByShelf(ctx, shelfID)
+	if err != nil {
+		return nil, wrap("list shelf contents", err)
+	}
+
+	contents := make([]ShelfPlacement, len(rows))
+	for index, row := range rows {
+		contents[index] = ShelfPlacement{
+			Placement: row.Placement,
+			Release:   row.HomeVideoRelease,
+			Movie:     row.Movie,
+		}
+	}
+
+	return contents, nil
+}
+
+// LocateRelease returns where a release physically lives, or ErrNotFound if it is
+// not placed anywhere.
+func (c *Collection) LocateRelease(ctx context.Context, releaseID uuid.UUID) (db.LocateReleaseRow, error) {
+	row, err := c.q.LocateRelease(ctx, releaseID)
+	if err != nil {
+		return db.LocateReleaseRow{}, notFound("locate release", err)
+	}
+
+	return row, nil
+}

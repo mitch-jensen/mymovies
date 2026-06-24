@@ -1,69 +1,56 @@
+// Package main runs a small sample program against the movie database.
 package main
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"reflect"
+	"log/slog"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/jackc/pgx/v5"
-
-	"github.com/spf13/viper"
-
-	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mitch-jensen/mymovies/internal/api"
+	"github.com/mitch-jensen/mymovies/internal/config"
 )
 
-func run() error {
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	viper.SetConfigFile(".env")
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("fatal error config file: %w", err))
-	}
-
-	ctx := context.Background()
-
-	connectionString := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s", viper.GetString("POSTGRES_USER"), viper.GetString("POSTGRES_PASSWORD"), viper.GetString("POSTGRES_ADDRESS"), viper.GetString("POSTGRES_PORT"), viper.GetString("POSTGRES_DB"))
-
-	conn, err := pgx.Connect(ctx, connectionString)
-	if err != nil {
-		return err
-	}
-	defer conn.Close(ctx)
-
-	queries := db.New(conn)
-
-	// list all movies
-	movies, err := queries.ListMovies(ctx)
-	if err != nil {
-		return err
-	}
-	log.Println(movies)
-
-	// create an movie
-	insertedMovie, err := queries.CreateMovie(ctx, db.CreateMovieParams{
-		Title:       "The Abominable Dr. Phibes",
-		ReleaseYear: 1971,
-	})
-	if err != nil {
-		return err
-	}
-	log.Println(insertedMovie)
-
-	// get the movie we just inserted
-	fetchedMovie, err := queries.GetMovie(ctx, insertedMovie.ID)
-	if err != nil {
-		return err
-	}
-
-	// prints true
-	log.Println(reflect.DeepEqual(insertedMovie, fetchedMovie))
-	return nil
+func main() {
+	os.Exit(run())
 }
 
-func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
+func run() int {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	dbCfg, srvCfg, err := config.Load(".")
+	if err != nil {
+		slog.Error("failed to load configuration", "error", err)
+
+		return 1
 	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := pgxpool.New(ctx, dbCfg.ConnectionString())
+	if err != nil {
+		slog.Error("failed to create database pool", "error", err)
+
+		return 1
+	}
+	defer pool.Close()
+
+	addr := net.JoinHostPort(srvCfg.Address, srvCfg.Port)
+	slog.Info("starting server", "address", addr)
+
+	srv := api.NewServer(pool)
+
+	err = srv.Run(ctx, addr)
+	if err != nil {
+		slog.Error("server stopped", "error", err)
+
+		return 1
+	}
+
+	return 0
 }

@@ -1,0 +1,77 @@
+import { type ChangeEvent, useCallback, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+
+import { ShelfLocation } from '../components/ShelfLocation'
+import { searchMoviesOptions } from '../client/@tanstack/react-query.gen'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
+
+export const Route = createFileRoute('/')({
+  component: Home,
+})
+
+function Home() {
+  const [term, setTerm] = useState('')
+  const debounced = useDebouncedValue(term.trim(), 200)
+
+  const { data, isFetching } = useQuery({
+    ...searchMoviesOptions({ query: { limit: 20, q: debounced } }),
+    // Only search once there's something to search for.
+    enabled: debounced.length > 0,
+  })
+
+  const results = data ?? []
+  const showEmpty = debounced.length > 0 && !isFetching && results.length === 0
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setTerm(event.target.value),
+    [],
+  )
+
+  return (
+    <main className="container">
+      <h1>My Movies</h1>
+
+      <input
+        className="search-input"
+        type="search"
+        value={term}
+        onChange={handleChange}
+        placeholder="Search your collection…"
+        aria-label="Search your collection"
+        // eslint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus
+      />
+
+      {isFetching && <p className="muted">Searching…</p>}
+      {showEmpty && <p className="muted">No matches.</p>}
+
+      <ul className="results">
+        {results.map((result) => {
+          const locatedReleases = result.locatedReleases ?? []
+
+          return (
+            <li key={result.movie.id}>
+              <strong>{result.movie.title}</strong> ({result.movie.releaseYear})
+              {locatedReleases.length === 0 ? (
+                <span className="muted"> — not shelved yet</span>
+              ) : (
+                <ul>
+                  {locatedReleases.map((located) => (
+                    <li key={located.release.id}>
+                      <ShelfLocation
+                        bookcase={located.location.bookcase.name}
+                        shelf={located.location.shelf.position}
+                        slot={located.location.placement.position}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </main>
+  )
+}

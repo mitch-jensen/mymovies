@@ -1,6 +1,92 @@
+version: "2"
 linters:
   default: all
   exclusions:
-    warn-unused: true
-    paths-except:
-      - dbstore/
+    generated: lax
+  disable:
+    - wsl
+    - gomodguard
+    - exhaustruct
+    # huma route registration and the thin CRUD handlers are intentionally
+    # repetitive; dupl flags this legitimate pattern with no useful dedup.
+    - dupl
+  settings:
+    tagalign:
+      # Enforce tag ordering, but not cosmetic vertical alignment — alignment
+      # padding fights structs that mix huma validation tags (default/min/max).
+      align: false
+      sort: true
+    depguard:
+      rules:
+        Main:
+          files:
+            - $all
+            - "!$test"
+            - "!**/internal/testdb/**"
+          allow:
+            - $gostd
+            - github.com/google/uuid$
+            - github.com/jackc/pgx/v5$
+            - github.com/jackc/pgx/v5/pgtype$
+            - github.com/jackc/pgx/v5/pgxpool$
+            - github.com/danielgtaylor/huma/v2$
+            - github.com/danielgtaylor/huma/v2/adapters/humachi$
+            - github.com/go-chi/chi/v5$
+            - github.com/go-chi/chi/v5/middleware$
+            - github.com/shopspring/decimal$
+            - github.com/spf13/viper$
+            - github.com/mitch-jensen/mymovies/dbstore$
+            - github.com/mitch-jensen/mymovies/internal/api$
+            - github.com/mitch-jensen/mymovies/internal/collection$
+            - github.com/mitch-jensen/mymovies/internal/config$
+          deny:
+            - pkg: reflect$
+              desc: Please don't use reflect package
+        # The testdb package is a shared integration-test harness; it is not
+        # imported by production code but lives outside *_test.go so packages can
+        # share it.
+        TestDB:
+          files:
+            - "**/internal/testdb/**"
+          allow:
+            - $gostd
+            - github.com/jackc/pgx/v5$
+            - github.com/jackc/pgx/v5/pgxpool$
+            - github.com/jackc/pgx/v5/stdlib$
+            - github.com/pressly/goose/v3$
+            - github.com/testcontainers/testcontainers-go/modules/postgres$
+          deny:
+            - pkg: reflect$
+              desc: Please don't use reflect package
+        Test:
+          files:
+            - $test
+          allow:
+            - $gostd
+            - github.com/google/uuid$
+            - github.com/jackc/pgx/v5$
+            - github.com/jackc/pgx/v5/pgtype$
+            - github.com/jackc/pgx/v5/pgxpool$
+            - github.com/jackc/pgx/v5/stdlib$
+            - github.com/mitch-jensen/mymovies/dbstore$
+            - github.com/mitch-jensen/mymovies/internal/api$
+            - github.com/mitch-jensen/mymovies/internal/collection$
+            - github.com/mitch-jensen/mymovies/internal/config$
+            - github.com/mitch-jensen/mymovies/internal/testdb$
+            - github.com/mitch-jensen/mymovies/ptr$
+            - github.com/shopspring/decimal$
+            - github.com/pressly/goose/v3$
+            - github.com/testcontainers/testcontainers-go$
+            - github.com/testcontainers/testcontainers-go/modules/postgres$
+          deny:
+            - pkg: reflect$
+              desc: Please don't use reflect package
+            - pkg: github.com/stretchr/testify
+              desc: Please don't use testify package
+formatters:
+  exclusions:
+    generated: lax
+output:
+  format:
+    json:
+      path: stdout

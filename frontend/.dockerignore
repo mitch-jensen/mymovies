@@ -1,0 +1,26 @@
+# Keep the build context small and deterministic. NOTE: openapi.yaml is
+# intentionally NOT ignored — the build runs `pnpm gen` against it.
+
+# Secrets & sensitive files (ALWAYS EXCLUDED FOR SECURITY)
+.env
+.env.*
+*.key
+*.pem
+
+# Dependencies & build output (reinstalled/regenerated in the image)
+node_modules
+dist
+.tanstack
+
+# Generated sources (recreated by `pnpm gen` / the router plugin during build)
+src/client
+src/routeTree.gen.ts
+
+# Version control & tooling caches
+.git
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

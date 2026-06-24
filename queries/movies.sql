@@ -14,13 +14,14 @@ INSERT INTO movies (
 )
 RETURNING *;
 
--- name: UpdateMovie :exec
+-- name: UpdateMovie :one
 UPDATE movies
 SET
     title = $2,
     release_year = $3,
     runtime_min = $4
-WHERE id = $1;
+WHERE id = $1
+RETURNING *;
 
 -- name: DeleteMovie :exec
 DELETE FROM movies

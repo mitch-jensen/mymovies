@@ -1,24 +1,54 @@
 services:
+  mymovies:
+    build:
+      context: .
+      network: host
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_ADDRESS: db
+      POSTGRES_PORT: 5432
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: 8000
+    ports:
+      - 127.0.0.1:8081:8000
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+      network: host
+    environment:
+      # Reach the backend over the compose network (container port, not 8081).
+      VITE_API_TARGET: http://mymovies:8000
+    ports:
+      - 127.0.0.1:4173:4173
+    depends_on:
+      - mymovies
+
   db:
-    image: dhi.io/postgres:18-alpine3.22-dev
+    image: dhi.io/postgres:18-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - db_data:/var/lib/postgresql/18/docker:rw
+      - db_data:/var/lib/postgresql/18/docker
     ports:
-      - 5432:5432
+      - 127.0.0.1:5432:5432
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   adminer:
     image: docker.io/library/adminer:5.4.2
     ports:
-      - 8081:8080
-
-  whodb:
-    image: docker.io/clidey/whodb:0.107.0
-    ports:
-      - 8082:8080
+      - 127.0.0.1:8082:8080
 
 volumes:
   db_data:
