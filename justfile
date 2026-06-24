@@ -32,6 +32,12 @@ vendor:
 test:
   go test ./...
 
+# Run tests with cross-package coverage and print a per-package + total summary.
+cover:
+  go test -coverpkg=./... -coverprofile=coverage.out ./...
+  @echo "--- coverage by package ---"
+  @go tool cover -func=coverage.out | tail -1
+
 # Run golangci-lint in Docker.
 lint:
   docker run --rm -t \

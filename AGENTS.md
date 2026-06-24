@@ -4,6 +4,8 @@
 
 - Current plan and progress live in [ROADMAP.md](ROADMAP.md). Read it when
   planning work, and keep it updated as tasks are completed.
+- The domain's ubiquitous language lives in [CONTEXT.md](CONTEXT.md). Use those
+  terms for types, modules, and endpoints; add a term there when you coin one.
 - Follow the repository's existing style, package layout, and tooling choices.
 - Keep changes scoped to the user's request.
 - Do not revert user changes unless the user explicitly asks for that.

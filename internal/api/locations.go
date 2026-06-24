@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/mitch-jensen/mymovies/internal/collection"
 )
 
 const (
@@ -15,6 +16,7 @@ const (
 	bookcaseByIDPath    = "/bookcases/{id}"
 	bookcaseShelvesPath = "/bookcases/{bookcaseId}/shelves"
 	shelfByIDPath       = "/shelves/{id}"
+	shelfPlacementsPath = "/shelves/{id}/placements"
 	placementPath       = "/releases/{id}/placement"
 	locationPath        = "/releases/{id}/location"
 )
@@ -165,6 +167,13 @@ func (s *Server) registerShelfRoutes() {
 		Summary:       "Delete a shelf",
 		DefaultStatus: http.StatusNoContent,
 	}, s.deleteShelf)
+
+	huma.Register(s.api, huma.Operation{
+		OperationID: "list-shelf-placements",
+		Method:      http.MethodGet,
+		Path:        shelfPlacementsPath,
+		Summary:     "List what is placed on a shelf, in slot order",
+	}, s.listShelfPlacements)
 }
 
 func (s *Server) registerPlacementRoutes() {
@@ -223,12 +232,7 @@ func (s *Server) listBookcases(ctx context.Context, _ *struct{}) (*ListBookcases
 		return nil, mapErr(err)
 	}
 
-	body := make([]Bookcase, len(bookcases))
-	for i, bookcase := range bookcases {
-		body[i] = bookcaseFromDB(bookcase)
-	}
-
-	return &ListBookcasesOutput{Body: body}, nil
+	return &ListBookcasesOutput{Body: mapSlice(bookcases, bookcaseFromDB)}, nil
 }
 
 func (s *Server) createBookcase(ctx context.Context, input *BookcaseInput) (*BookcaseOutput, error) {
@@ -312,12 +316,7 @@ func (s *Server) listBookcaseShelves(ctx context.Context, input *ShelvesInput) (
 		return nil, mapErr(err)
 	}
 
-	body := make([]Shelf, len(shelves))
-	for i, shelf := range shelves {
-		body[i] = shelfFromDB(shelf)
-	}
-
-	return &ListShelvesOutput{Body: body}, nil
+	return &ListShelvesOutput{Body: mapSlice(shelves, shelfFromDB)}, nil
 }
 
 func (s *Server) createShelf(ctx context.Context, input *CreateShelfInput) (*ShelfOutput, error) {
@@ -348,6 +347,35 @@ func (s *Server) deleteShelf(ctx context.Context, input *ShelfIDInput) (*struct{
 	}
 
 	return nil, nil //nolint:nilnil // 204 No Content: no body and no error.
+}
+
+// ShelfPlacement is a release placed on a shelf, with the movie it is a copy of.
+type ShelfPlacement struct {
+	Placement Placement `json:"placement"`
+	Release   Release   `json:"release"`
+	Movie     Movie     `json:"movie"`
+}
+
+func shelfPlacementFromDB(content collection.ShelfPlacement) ShelfPlacement {
+	return ShelfPlacement{
+		Placement: placementFromDB(content.Placement),
+		Release:   releaseFromDB(content.Release),
+		Movie:     movieFromDB(content.Movie),
+	}
+}
+
+// ShelfPlacementsOutput is the response body for listing a shelf's contents.
+type ShelfPlacementsOutput struct {
+	Body []ShelfPlacement
+}
+
+func (s *Server) listShelfPlacements(ctx context.Context, input *ShelfIDInput) (*ShelfPlacementsOutput, error) {
+	contents, err := s.collection.ShelfContents(ctx, input.ID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+
+	return &ShelfPlacementsOutput{Body: mapSlice(contents, shelfPlacementFromDB)}, nil
 }
 
 // PlaceReleaseInput carries the release ID in the path and the target shelf and

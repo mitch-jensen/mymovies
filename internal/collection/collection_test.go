@@ -126,10 +126,10 @@ func TestPlaceReleaseReturnsErrNotFoundForMissingShelf(t *testing.T) {
 }
 
 // placeReleaseInBookcase creates a movie with one release and places it on a new
-// shelf of a freshly created bookcase, returning the movie and bookcase name.
+// shelf of a freshly created bookcase, returning the movie and the shelf.
 func placeReleaseInBookcase(
 	ctx context.Context, t *testing.T, col *collection.Collection, title, bookcaseName string,
-) (db.Movie, string) {
+) (db.Movie, db.Shelf) {
 	t.Helper()
 
 	movie, err := col.CreateMovie(ctx, db.CreateMovieParams{Title: title, ReleaseYear: 1988})
@@ -157,7 +157,7 @@ func placeReleaseInBookcase(
 		t.Fatalf("PlaceRelease: %v", err)
 	}
 
-	return movie, bookcaseName
+	return movie, shelf
 }
 
 func TestSearchGroupsPlacedReleasesByMovie(t *testing.T) {
@@ -166,7 +166,7 @@ func TestSearchGroupsPlacedReleasesByMovie(t *testing.T) {
 	ctx := context.Background()
 	col := newCollection(ctx, t)
 
-	movie, bookcaseName := placeReleaseInBookcase(ctx, t, col, "Akira", "Hallway")
+	movie, _ := placeReleaseInBookcase(ctx, t, col, "Akira", "Hallway")
 
 	results, err := col.Search(ctx, "akira", 20)
 	if err != nil {
@@ -185,8 +185,46 @@ func TestSearchGroupsPlacedReleasesByMovie(t *testing.T) {
 		t.Fatalf("len(located releases) = %d, want 1", len(results[0].Releases))
 	}
 
-	if results[0].Releases[0].Bookcase.Name != bookcaseName {
-		t.Errorf("located bookcase = %q, want %q", results[0].Releases[0].Bookcase.Name, bookcaseName)
+	if results[0].Releases[0].Bookcase.Name != "Hallway" {
+		t.Errorf("located bookcase = %q, want %q", results[0].Releases[0].Bookcase.Name, "Hallway")
+	}
+}
+
+func TestShelfContentsReturnsPlacedReleasesWithMovie(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	col := newCollection(ctx, t)
+
+	movie, shelf := placeReleaseInBookcase(ctx, t, col, "Tetsuo", "Study")
+
+	contents, err := col.ShelfContents(ctx, shelf.ID)
+	if err != nil {
+		t.Fatalf("ShelfContents: %v", err)
+	}
+
+	if len(contents) != 1 {
+		t.Fatalf("len(contents) = %d, want 1", len(contents))
+	}
+
+	if contents[0].Movie.ID != movie.ID {
+		t.Errorf("content movie ID = %v, want %v", contents[0].Movie.ID, movie.ID)
+	}
+}
+
+func TestShelfContentsEmptyForUnknownShelf(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	col := newCollection(ctx, t)
+
+	contents, err := col.ShelfContents(ctx, uuid.New())
+	if err != nil {
+		t.Fatalf("ShelfContents: %v", err)
+	}
+
+	if len(contents) != 0 {
+		t.Errorf("len(contents) = %d, want 0", len(contents))
 	}
 }
 

@@ -146,26 +146,63 @@ func (q *Queries) ListBookcases(ctx context.Context) ([]Bookcase, error) {
 }
 
 const listPlacementsByShelf = `-- name: ListPlacementsByShelf :many
-SELECT id, release_id, shelf_id, position, created_at FROM placements
-WHERE shelf_id = $1
-ORDER BY position, created_at
+SELECT
+    p.id, p.release_id, p.shelf_id, p.position, p.created_at,
+    r.id, r.movie_id, r.studio, r.country_code, r.upc, r.ean, r.asin, r.release_date, r.casing, r.slipcover, r.blu_ray_discs, r.dvd_discs, r.digital_copy, r.created_at, r.watched, r.comment, r.retailer, r.price, r.price_comment,
+    m.id, m.title, m.release_year, m.runtime_min
+FROM placements p
+JOIN home_video_releases r ON r.id = p.release_id
+JOIN movies m ON m.id = r.movie_id
+WHERE p.shelf_id = $1
+ORDER BY p.position, p.created_at
 `
 
-func (q *Queries) ListPlacementsByShelf(ctx context.Context, shelfID uuid.UUID) ([]Placement, error) {
+type ListPlacementsByShelfRow struct {
+	Placement        Placement
+	HomeVideoRelease HomeVideoRelease
+	Movie            Movie
+}
+
+// Everything physically placed on a shelf, joined to its release and that
+// release's movie, in slot order. The feed for rendering a shelf's spines.
+func (q *Queries) ListPlacementsByShelf(ctx context.Context, shelfID uuid.UUID) ([]ListPlacementsByShelfRow, error) {
 	rows, err := q.db.Query(ctx, listPlacementsByShelf, shelfID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Placement
+	var items []ListPlacementsByShelfRow
 	for rows.Next() {
-		var i Placement
+		var i ListPlacementsByShelfRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.ReleaseID,
-			&i.ShelfID,
-			&i.Position,
-			&i.CreatedAt,
+			&i.Placement.ID,
+			&i.Placement.ReleaseID,
+			&i.Placement.ShelfID,
+			&i.Placement.Position,
+			&i.Placement.CreatedAt,
+			&i.HomeVideoRelease.ID,
+			&i.HomeVideoRelease.MovieID,
+			&i.HomeVideoRelease.Studio,
+			&i.HomeVideoRelease.CountryCode,
+			&i.HomeVideoRelease.Upc,
+			&i.HomeVideoRelease.Ean,
+			&i.HomeVideoRelease.Asin,
+			&i.HomeVideoRelease.ReleaseDate,
+			&i.HomeVideoRelease.Casing,
+			&i.HomeVideoRelease.Slipcover,
+			&i.HomeVideoRelease.BluRayDiscs,
+			&i.HomeVideoRelease.DvdDiscs,
+			&i.HomeVideoRelease.DigitalCopy,
+			&i.HomeVideoRelease.CreatedAt,
+			&i.HomeVideoRelease.Watched,
+			&i.HomeVideoRelease.Comment,
+			&i.HomeVideoRelease.Retailer,
+			&i.HomeVideoRelease.Price,
+			&i.HomeVideoRelease.PriceComment,
+			&i.Movie.ID,
+			&i.Movie.Title,
+			&i.Movie.ReleaseYear,
+			&i.Movie.RuntimeMin,
 		); err != nil {
 			return nil, err
 		}

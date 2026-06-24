@@ -142,6 +142,35 @@ func (c *Collection) RemovePlacement(ctx context.Context, releaseID uuid.UUID) e
 	return nil
 }
 
+// ShelfPlacement is a release placed on a shelf, together with the movie it is a
+// copy of — enough to render the spine and know its slot.
+type ShelfPlacement struct {
+	Placement db.Placement
+	Release   db.HomeVideoRelease
+	Movie     db.Movie
+}
+
+// ShelfContents returns everything placed on a shelf, in slot order, each with
+// its release and movie. It is the shelf-rendering feed; the result is empty when
+// the shelf holds nothing (or does not exist).
+func (c *Collection) ShelfContents(ctx context.Context, shelfID uuid.UUID) ([]ShelfPlacement, error) {
+	rows, err := c.q.ListPlacementsByShelf(ctx, shelfID)
+	if err != nil {
+		return nil, wrap("list shelf contents", err)
+	}
+
+	contents := make([]ShelfPlacement, len(rows))
+	for index, row := range rows {
+		contents[index] = ShelfPlacement{
+			Placement: row.Placement,
+			Release:   row.HomeVideoRelease,
+			Movie:     row.Movie,
+		}
+	}
+
+	return contents, nil
+}
+
 // LocateRelease returns where a release physically lives, or ErrNotFound if it is
 // not placed anywhere.
 func (c *Collection) LocateRelease(ctx context.Context, releaseID uuid.UUID) (db.LocateReleaseRow, error) {

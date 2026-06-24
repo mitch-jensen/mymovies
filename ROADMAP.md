@@ -130,8 +130,17 @@ Engine behaviour:
       `frontend/openapi.yaml` (no DB needed) as the contract for client
       generation. It lives under `frontend/` (gitignored) so the frontend Docker
       build context is self-contained.
+- [x] Coverage measured via `just cover` (cross-package, currently ~77%).
+      Remaining gaps are entrypoints (`main`, `cmd/openapi`, `server.Run`),
+      generated `WithTx`, and infra error/teardown paths — intentionally untested.
+- [x] Bookcase & shelf CRUD now have full api + dbstore test coverage (previously
+      only create was tested).
+- [x] Shelf contents endpoint: `GET /shelves/{id}/placements` returns each placed
+      release on a shelf with its movie, in slot order (the spine-rendering feed;
+      replaced the unused `ListPlacementsByShelf` query).
 - [ ] Pagination on list endpoints.
 - [ ] Request validation via huma input tags.
+- [ ] `GET /shelves/{id}` (single shelf) — not yet needed; revisit if the UI wants it.
 - [ ] CI (GitHub Actions) running `just check`. *(Owner: Mitch.)*
 
 ## Decisions made
@@ -164,6 +173,7 @@ Engine behaviour:
 - **Spine appearance data (post-MVP):** where to store dimensions/colour/art.
 
 ## How to resume
-1. Read this file and [AGENTS.md](AGENTS.md).
+1. Read this file, [CONTEXT.md](CONTEXT.md) (domain language), and
+   [AGENTS.md](AGENTS.md).
 2. `just test` to confirm green.
 3. Pick the first unchecked item in the current phase.

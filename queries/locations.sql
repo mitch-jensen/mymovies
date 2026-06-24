@@ -59,9 +59,17 @@ DO UPDATE SET shelf_id = EXCLUDED.shelf_id, position = EXCLUDED.position
 RETURNING *;
 
 -- name: ListPlacementsByShelf :many
-SELECT * FROM placements
-WHERE shelf_id = $1
-ORDER BY position, created_at;
+-- Everything physically placed on a shelf, joined to its release and that
+-- release's movie, in slot order. The feed for rendering a shelf's spines.
+SELECT
+    sqlc.embed(p),
+    sqlc.embed(r),
+    sqlc.embed(m)
+FROM placements p
+JOIN home_video_releases r ON r.id = p.release_id
+JOIN movies m ON m.id = r.movie_id
+WHERE p.shelf_id = $1
+ORDER BY p.position, p.created_at;
 
 -- name: RemovePlacement :exec
 DELETE FROM placements

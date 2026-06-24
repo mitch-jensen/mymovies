@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	db "github.com/mitch-jensen/mymovies/dbstore"
 	"github.com/mitch-jensen/mymovies/internal/testdb"
@@ -15,20 +16,203 @@ const (
 	bookcaseStudy  = "Study"
 )
 
-// seedRelease creates a movie and a bare release of it, returning the release.
-func seedRelease(ctx context.Context, t *testing.T, queries *db.Queries) db.HomeVideoRelease {
+// seedReleaseOf creates a bare release of the given movie, returning the release.
+func seedReleaseOf(ctx context.Context, t *testing.T, queries *db.Queries, movieID uuid.UUID) db.HomeVideoRelease {
 	t.Helper()
 
-	movie := seedMovie(ctx, t, queries)
-
 	release, err := queries.CreateHomeVideoRelease(ctx, db.CreateHomeVideoReleaseParams{
-		MovieID: movie.ID, DigitalCopy: false, Watched: false,
+		MovieID: movieID, DigitalCopy: false, Watched: false,
 	})
 	if err != nil {
 		t.Fatalf("CreateHomeVideoRelease() error = %v", err)
 	}
 
 	return release
+}
+
+// seedRelease creates a movie and a bare release of it, returning the release.
+func seedRelease(ctx context.Context, t *testing.T, queries *db.Queries) db.HomeVideoRelease {
+	t.Helper()
+
+	movie := seedMovie(ctx, t, queries)
+
+	return seedReleaseOf(ctx, t, queries, movie.ID)
+}
+
+// seedShelf creates a bookcase and one shelf on it, returning the shelf.
+func seedShelf(ctx context.Context, t *testing.T, queries *db.Queries, bookcaseName string) db.Shelf {
+	t.Helper()
+
+	bookcase, err := queries.CreateBookcase(ctx, db.CreateBookcaseParams{Name: bookcaseName, Position: 0})
+	if err != nil {
+		t.Fatalf("CreateBookcase() error = %v", err)
+	}
+
+	shelf, err := queries.CreateShelf(ctx, db.CreateShelfParams{BookcaseID: bookcase.ID, Position: 0})
+	if err != nil {
+		t.Fatalf("CreateShelf() error = %v", err)
+	}
+
+	return shelf
+}
+
+// mustPlace places a release on a shelf at a position, failing the test on error.
+func mustPlace(ctx context.Context, t *testing.T, queries *db.Queries, releaseID, shelfID uuid.UUID, position int32) {
+	t.Helper()
+
+	_, err := queries.PlaceRelease(ctx, db.PlaceReleaseParams{ReleaseID: releaseID, ShelfID: shelfID, Position: position})
+	if err != nil {
+		t.Fatalf("PlaceRelease() error = %v", err)
+	}
+}
+
+func TestQueries_ListPlacementsByShelf(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	movie := seedMovie(ctx, t, queries)
+	shelf := seedShelf(ctx, t, queries, bookcaseLounge)
+
+	// Two releases of the movie, placed out of slot order to prove ORDER BY.
+	first := seedReleaseOf(ctx, t, queries, movie.ID)
+	second := seedReleaseOf(ctx, t, queries, movie.ID)
+	mustPlace(ctx, t, queries, first.ID, shelf.ID, 1)
+	mustPlace(ctx, t, queries, second.ID, shelf.ID, 0)
+
+	rows, err := queries.ListPlacementsByShelf(ctx, shelf.ID)
+	if err != nil {
+		t.Fatalf("ListPlacementsByShelf() error = %v", err)
+	}
+
+	if len(rows) != 2 {
+		t.Fatalf("got %d placements, want 2", len(rows))
+	}
+
+	// Ordered by position: the release placed at slot 0 comes first.
+	if rows[0].HomeVideoRelease.ID != second.ID {
+		t.Errorf("rows[0] release = %v, want %v (slot 0 first)", rows[0].HomeVideoRelease.ID, second.ID)
+	}
+
+	if rows[0].Movie.Title != movie.Title {
+		t.Errorf("rows[0] movie title = %q, want %q", rows[0].Movie.Title, movie.Title)
+	}
+}
+
+func TestQueries_ListShelvesByBookcaseOrdered(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	bookcase, err := queries.CreateBookcase(ctx, db.CreateBookcaseParams{Name: bookcaseStudy, Position: 0})
+	if err != nil {
+		t.Fatalf("CreateBookcase() error = %v", err)
+	}
+
+	// Insert out of order to prove ListShelvesByBookcase orders by position.
+	for _, pos := range []int32{2, 0, 1} {
+		_, err = queries.CreateShelf(ctx, db.CreateShelfParams{BookcaseID: bookcase.ID, Position: pos})
+		if err != nil {
+			t.Fatalf("CreateShelf() error = %v", err)
+		}
+	}
+
+	shelves, err := queries.ListShelvesByBookcase(ctx, bookcase.ID)
+	if err != nil {
+		t.Fatalf("ListShelvesByBookcase() error = %v", err)
+	}
+
+	if len(shelves) != 3 {
+		t.Fatalf("got %d shelves, want 3", len(shelves))
+	}
+
+	for i, want := range []int32{0, 1, 2} {
+		if shelves[i].Position != want {
+			t.Errorf("shelves[%d].Position = %d, want %d", i, shelves[i].Position, want)
+		}
+	}
+}
+
+func TestQueries_UpdateBookcase(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	bookcase, err := queries.CreateBookcase(ctx, db.CreateBookcaseParams{Name: bookcaseLounge, Position: 0})
+	if err != nil {
+		t.Fatalf("CreateBookcase() error = %v", err)
+	}
+
+	updated, err := queries.UpdateBookcase(ctx, db.UpdateBookcaseParams{ID: bookcase.ID, Name: bookcaseStudy, Position: 5})
+	if err != nil {
+		t.Fatalf("UpdateBookcase() error = %v", err)
+	}
+
+	if updated.Name != bookcaseStudy || updated.Position != 5 {
+		t.Errorf("UpdateBookcase() = {%q, %d}, want {%q, 5}", updated.Name, updated.Position, bookcaseStudy)
+	}
+}
+
+func TestQueries_DeleteBookcase(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	bookcase, err := queries.CreateBookcase(ctx, db.CreateBookcaseParams{Name: bookcaseLounge, Position: 0})
+	if err != nil {
+		t.Fatalf("CreateBookcase() error = %v", err)
+	}
+
+	err = queries.DeleteBookcase(ctx, bookcase.ID)
+	if err != nil {
+		t.Fatalf("DeleteBookcase() error = %v", err)
+	}
+
+	_, err = queries.GetBookcase(ctx, bookcase.ID)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("GetBookcase() after delete error = %v, want %v", err, pgx.ErrNoRows)
+	}
+}
+
+func TestQueries_UpdateShelf(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	shelf := seedShelf(ctx, t, queries, bookcaseLounge)
+
+	updated, err := queries.UpdateShelf(ctx, db.UpdateShelfParams{ID: shelf.ID, Position: 9})
+	if err != nil {
+		t.Fatalf("UpdateShelf() error = %v", err)
+	}
+
+	if updated.Position != 9 {
+		t.Errorf("UpdateShelf().Position = %d, want 9", updated.Position)
+	}
+}
+
+func TestQueries_DeleteShelf(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queries := db.New(testdb.Setup(ctx, t))
+
+	shelf := seedShelf(ctx, t, queries, bookcaseLounge)
+
+	err := queries.DeleteShelf(ctx, shelf.ID)
+	if err != nil {
+		t.Fatalf("DeleteShelf() error = %v", err)
+	}
+
+	_, err = queries.GetShelf(ctx, shelf.ID)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("GetShelf() after delete error = %v, want %v", err, pgx.ErrNoRows)
+	}
 }
 
 func TestQueries_ListBookcasesOrdered(t *testing.T) {

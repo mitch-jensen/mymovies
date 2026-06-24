@@ -49,29 +49,23 @@ func (s *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput,
 		return nil, mapErr(err)
 	}
 
-	body := make([]SearchResult, len(results))
-	for index, result := range results {
-		body[index] = searchResultFromDB(result)
-	}
-
-	return &SearchOutput{Body: body}, nil
+	return &SearchOutput{Body: mapSlice(results, searchResultFromDB)}, nil
 }
 
 func searchResultFromDB(result collection.SearchResult) SearchResult {
-	located := make([]LocatedRelease, len(result.Releases))
-	for index, release := range result.Releases {
-		located[index] = LocatedRelease{
-			Release: releaseFromDB(release.Release),
-			Location: Location{
-				Bookcase:  bookcaseFromDB(release.Bookcase),
-				Shelf:     shelfFromDB(release.Shelf),
-				Placement: placementFromDB(release.Placement),
-			},
-		}
-	}
-
 	return SearchResult{
 		Movie:           movieFromDB(result.Movie),
-		LocatedReleases: located,
+		LocatedReleases: mapSlice(result.Releases, locatedReleaseFromDB),
+	}
+}
+
+func locatedReleaseFromDB(located collection.LocatedRelease) LocatedRelease {
+	return LocatedRelease{
+		Release: releaseFromDB(located.Release),
+		Location: Location{
+			Bookcase:  bookcaseFromDB(located.Bookcase),
+			Shelf:     shelfFromDB(located.Shelf),
+			Placement: placementFromDB(located.Placement),
+		},
 	}
 }

@@ -163,12 +163,7 @@ func (s *Server) listMovieReleases(ctx context.Context, input *MovieReleasesInpu
 		return nil, mapErr(err)
 	}
 
-	body := make([]Release, len(releases))
-	for i, release := range releases {
-		body[i] = releaseFromDB(release)
-	}
-
-	return &ListReleasesOutput{Body: body}, nil
+	return &ListReleasesOutput{Body: mapSlice(releases, releaseFromDB)}, nil
 }
 
 func (s *Server) createRelease(ctx context.Context, input *CreateReleaseInput) (*ReleaseOutput, error) {

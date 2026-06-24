@@ -92,12 +92,7 @@ func (s *Server) listMovies(ctx context.Context, _ *struct{}) (*ListMoviesOutput
 		return nil, mapErr(err)
 	}
 
-	body := make([]Movie, len(movies))
-	for i, movie := range movies {
-		body[i] = movieFromDB(movie)
-	}
-
-	return &ListMoviesOutput{Body: body}, nil
+	return &ListMoviesOutput{Body: mapSlice(movies, movieFromDB)}, nil
 }
 
 // MovieInput is a request carrying movie field values in its body.
