@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/shopspring/decimal"
 	db "github.com/mitch-jensen/mymovies/dbstore"
 	"github.com/mitch-jensen/mymovies/internal/testdb"
 	"github.com/mitch-jensen/mymovies/ptr"
+	"github.com/shopspring/decimal"
 )
 
 func seedMovie(ctx context.Context, t *testing.T, queries *db.Queries) db.Movie {

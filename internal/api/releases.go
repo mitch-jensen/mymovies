@@ -9,8 +9,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/shopspring/decimal"
 	db "github.com/mitch-jensen/mymovies/dbstore"
+	"github.com/shopspring/decimal"
 )
 
 const (
